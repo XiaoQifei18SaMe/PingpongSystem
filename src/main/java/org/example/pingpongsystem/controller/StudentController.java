@@ -14,6 +14,8 @@ public class StudentController {
 
     @PostMapping("/create_user")
     public String createUser(@RequestBody StudentEntity studentEntity) {
+        studentEntity.setId(null);
+        studentEntity.setVersion(null);
         boolean result = studentService.save(studentEntity);
         if (result) {
             return "保存成功";

@@ -1,9 +1,10 @@
 package org.example.pingpongsystem.service;
 
+import jakarta.validation.ConstraintViolationException;
 import org.example.pingpongsystem.entity.StudentEntity;
 import org.example.pingpongsystem.repository.StudentRepository;
-import org.example.pingpongsystem.repository.TestRepository;
 import org.springframework.dao.DataAccessException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -17,8 +18,13 @@ public class StudentService {
         try {
             studentRepository.save(student);
             return true;
-        }
-        catch (DataAccessException e) {
+        } catch (OptimisticLockingFailureException e) {
+            System.err.println("数据已被其他用户修改，请刷新后重试");
+            return false;
+        } catch (ConstraintViolationException e) {
+            System.err.println("必需字段空缺");
+            return false;
+        } catch (DataAccessException e) {
             System.err.println("保存学生信息失败：" + e.getMessage());
             return false;
         }
