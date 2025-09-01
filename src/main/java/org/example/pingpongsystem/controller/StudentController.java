@@ -1,10 +1,8 @@
 package org.example.pingpongsystem.controller;
 
+import org.example.pingpongsystem.entity.StudentEntity;
 import org.example.pingpongsystem.service.StudentService;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RequestMapping("/user")
 @RestController
@@ -15,7 +13,13 @@ public class StudentController {
     }
 
     @PostMapping("/create_user")
-    public String createUser(@RequestParam(value = "name", defaultValue = "World") String name) {
-
+    public String createUser(@RequestBody StudentEntity studentEntity) {
+        boolean result = studentService.save(studentEntity);
+        if (result) {
+            return "保存成功";
+        }
+        else {
+            return "用户名、密码、校区、姓名和电话是必须填写的信息，其他信息可空白";
+        }
     }
 }

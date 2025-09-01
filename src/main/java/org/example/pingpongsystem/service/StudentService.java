@@ -13,14 +13,14 @@ public class StudentService {
         this.studentRepository = studentRepository;  // 由Spring容器注入实例
     }
 
-    public String save(StudentEntity student) {
+    public boolean save(StudentEntity student) {
         try {
             studentRepository.save(student);
-            return "保存成功";
+            return true;
         }
         catch (DataAccessException e) {
             System.err.println("保存学生信息失败：" + e.getMessage());
-            return "用户名、密码、校区、姓名和电话是必须填写的信息，其他信息可空白";
+            return false;
         }
     }
 }
