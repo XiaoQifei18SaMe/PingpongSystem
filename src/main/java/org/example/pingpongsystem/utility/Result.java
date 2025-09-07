@@ -36,4 +36,6 @@ public class Result<T> {
         return new Result<>(code, message, null);
     }
 
+    public boolean isSuccess() {return code == StatusCode.SUCCESS;}
+
 }

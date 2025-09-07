@@ -12,5 +12,7 @@ public class StatusCode {
     public static final int PASSWORD_ERROR = 402;
     // 系统异常
     public static final int SYSTEM_ERROR = 500;
+
+    public static final int FAIL = 0;
 }
 
