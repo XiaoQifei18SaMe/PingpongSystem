@@ -5,7 +5,7 @@ package org.example.pingpongsystem.utility;
  */
 public class StatusCode {
     // 成功状态
-    public static final int SUCCESS = 200;
+    public static final int SUCCESS = 20000;
     // 用户名不存在
     public static final int USERNAME_NOT_FOUND = 401;
     // 密码错误

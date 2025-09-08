@@ -9,5 +9,5 @@ public interface CoachRepository extends JpaRepository<CoachEntity, Long> {
 
     CoachEntity findByUsername(String name);
 
-    List<CoachEntity> findAllByCertified(boolean certified);
+    List<CoachEntity> findAllByisCertified(boolean certified);
 }

@@ -40,7 +40,7 @@ public class AdminService {
     }
 
     public Result<List<CoachEntity>> getUncertifiedCoach(Long schoolId) {
-        List<CoachEntity> tmp = coachRepository.findAllByCertified(false);
+        List<CoachEntity> tmp = coachRepository.findAllByisCertified(false);
         List<CoachEntity> list = new ArrayList<>();
         for (CoachEntity c : tmp) {
             if (c.getSchoolId() == schoolId)

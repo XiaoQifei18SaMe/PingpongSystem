@@ -125,11 +125,11 @@ public class CoachService {
     }
 
     public Result<List<CoachEntity>> getAll() {
-        return Result.success(coachRepository.findAllByCertified(true));
+        return Result.success(coachRepository.findAllByisCertified(true));
     }
 
     public Result<List<CoachEntity>> getSearched(String name, Boolean isMale, Integer age_low, Integer age_high, Integer level) {
-        List<CoachEntity> li = coachRepository.findAllByCertified(true);
+        List<CoachEntity> li = coachRepository.findAllByisCertified(true);
         if (name != null && !name.isEmpty()) {
             List<CoachEntity> li1 = new ArrayList<>();
             for (CoachEntity coach : li) {

@@ -1,5 +1,6 @@
 package org.example.pingpongsystem.controller;
 
+import lombok.Data;
 import org.example.pingpongsystem.entity.*;
 import org.example.pingpongsystem.service.AdminService;
 import org.example.pingpongsystem.service.CoachService;
@@ -10,7 +11,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
-@RequestMapping("/coach")
+@RequestMapping("/super_admin")
 @RestController
 public class SuperAdminController {
     private final SuperAdminService superAdminService;
@@ -22,8 +23,8 @@ public class SuperAdminController {
     }
 
     @PostMapping("/login")
-    public Result<SuperAdminEntity> login(@RequestParam String username, @RequestParam String password) {
-        return superAdminService.login(username, password);
+    public Result<SuperAdminEntity> login(@RequestBody LoginRequest request) {
+        return superAdminService.login(request.getUsername(), request.getPassword());
     }
 
     @PostMapping("/create_admin")
@@ -39,5 +40,12 @@ public class SuperAdminController {
     @PostMapping("/manage_school_info")
     public Result<SchoolEntity> manageSchoolInfo(@RequestBody SchoolEntity schoolEntity) {
         return superAdminService.reviseSchool(schoolEntity);
+    }
+
+    @Data
+    public static class LoginRequest {
+        private String username;
+        private String password;
+        private String role; // 新增角色字段
     }
 }

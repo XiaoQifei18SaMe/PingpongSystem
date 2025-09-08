@@ -10,7 +10,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
-@RequestMapping("/coach")
+@RequestMapping("/admin")
 @RestController
 public class AdminController {
     private final AdminService adminService;
