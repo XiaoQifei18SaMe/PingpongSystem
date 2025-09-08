@@ -6,7 +6,7 @@ import lombok.Data;
 
 @Entity
 @Data
-public class CoachEntity {
+public class SuperAdminEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -21,32 +21,9 @@ public class CoachEntity {
 
     @NotBlank
     @Column(nullable = false)
-    private String name;
-
-    private boolean isMale;
-
-    private int age;
-
-    @Column(nullable = false)
-    private int schoolId;
-
-    @NotBlank
-    @Column(nullable = false)
     private String phone;
 
     private String email;
-
-    @NotBlank
-    @Column(nullable = false)
-    private String photoPath;
-
-    @NotBlank
-    @Column(nullable = false)
-    private String description;
-
-    private int level;
-
-    private boolean isCertified;
 
     @Version
     private Integer version;

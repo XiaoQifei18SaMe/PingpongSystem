@@ -1,7 +1,11 @@
 package org.example.pingpongsystem.service;
 
 import jakarta.validation.ConstraintViolationException;
+import org.example.pingpongsystem.entity.CoachEntity;
+import org.example.pingpongsystem.entity.CoachTeachStudentEntity;
 import org.example.pingpongsystem.entity.StudentEntity;
+import org.example.pingpongsystem.repository.CoachRepository;
+import org.example.pingpongsystem.repository.CoachTeachStudentRepository;
 import org.example.pingpongsystem.repository.StudentRepository;
 import org.example.pingpongsystem.utility.Result;
 import org.example.pingpongsystem.utility.StatusCode;
@@ -10,11 +14,18 @@ import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Optional;
+
 @Service
 public class StudentService {
     private final StudentRepository studentRepository;
-    public StudentService(StudentRepository studentRepository) {
+    private final CoachTeachStudentRepository coachTeachStudentRepository;
+    private final CoachRepository coachRepository;
+
+    public StudentService(StudentRepository studentRepository, CoachTeachStudentRepository coachTeachStudentRepository, CoachRepository coachRepository) {
         this.studentRepository = studentRepository;  // 由Spring容器注入实例
+        this.coachTeachStudentRepository = coachTeachStudentRepository;
+        this.coachRepository = coachRepository;
     }
 
     public boolean save(StudentEntity student) {
@@ -75,6 +86,35 @@ public class StudentService {
                     temp.setEmail(student.getEmail());
             }
             return Result.success(temp);
+        }
+    }
+
+    @Transactional
+    public Result<CoachTeachStudentEntity> selectCoach(Long coachId, Long studentId) {
+        Optional<CoachEntity> tmp = coachRepository.findById(coachId);
+        if (tmp.isPresent()) {
+            CoachEntity coach = tmp.get();
+            if (coachTeachStudentRepository.countByCoachId(coachId) >= 20) {
+                return Result.error(StatusCode.FAIL, "该教练暂时没有名额");
+            }
+            else if (coachTeachStudentRepository.countByStudentId(studentId) >= 2) {
+                return Result.error(StatusCode.FAIL, "学员的教练数量已达上限（2个）");
+            }
+            else {
+                Optional<CoachEntity> t = coachRepository.findById(coachId);
+                if (t.isPresent()) {
+                    CoachTeachStudentEntity coachTeachStudentEntity = new CoachTeachStudentEntity();
+                    coachTeachStudentEntity.setCoachId(coachId);
+                    coachTeachStudentEntity.setStudentId(studentId);
+                    coachTeachStudentEntity.setConfirmed(false);
+                    coachTeachStudentRepository.save(coachTeachStudentEntity);
+                    return Result.success(coachTeachStudentEntity);
+                }
+                else return Result.error(StatusCode.FAIL, "学员不存在");
+            }
+        }
+        else {
+            return Result.error(StatusCode.FAIL, "未找到该教练");
         }
     }
 }

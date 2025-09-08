@@ -2,7 +2,9 @@ package org.example.pingpongsystem.service;
 
 import jakarta.validation.ConstraintViolationException;
 import org.example.pingpongsystem.entity.CoachEntity;
+import org.example.pingpongsystem.entity.CoachTeachStudentEntity;
 import org.example.pingpongsystem.repository.CoachRepository;
+import org.example.pingpongsystem.repository.CoachTeachStudentRepository;
 import org.example.pingpongsystem.utility.Result;
 import org.example.pingpongsystem.utility.StatusCode;
 import org.example.pingpongsystem.utility.Utility;
@@ -16,14 +18,15 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Objects;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 public class CoachService {
     private final CoachRepository coachRepository;
-    public CoachService(CoachRepository coachRepository) {
+    private final CoachTeachStudentRepository coachTeachStudentRepository;
+    public CoachService(CoachRepository coachRepository, CoachTeachStudentRepository coachTeachStudentRepository) {
         this.coachRepository = coachRepository;  // 由Spring容器注入实例
+        this.coachTeachStudentRepository = coachTeachStudentRepository;
     }
 
     public Result<String> save(CoachEntity coach, MultipartFile file) {
@@ -118,6 +121,89 @@ public class CoachService {
                 }
             }
             return Result.success(temp);
+        }
+    }
+
+    public Result<List<CoachEntity>> getAll() {
+        return Result.success(coachRepository.findAllByCertified(true));
+    }
+
+    public Result<List<CoachEntity>> getSearched(String name, Boolean isMale, Integer age_low, Integer age_high, Integer level) {
+        List<CoachEntity> li = coachRepository.findAllByCertified(true);
+        if (name != null && !name.isEmpty()) {
+            List<CoachEntity> li1 = new ArrayList<>();
+            for (CoachEntity coach : li) {
+                if (coach.getName().contains(name)) {
+                    li1.add(coach);
+                }
+            }
+            li = li1;
+        }
+        if (isMale != null) {
+            List<CoachEntity> li2 = new ArrayList<>();
+            for (CoachEntity coach : li) {
+                if (coach.isMale() == isMale) {
+                    li2.add(coach);
+                }
+            }
+            li = li2;
+        }
+        if (age_low != null) {
+            List<CoachEntity> li3 = new ArrayList<>();
+            for (CoachEntity coach : li) {
+                if (coach.getAge() >= age_low) {
+                    li3.add(coach);
+                }
+            }
+            li = li3;
+        }
+        if (age_high != null) {
+            List<CoachEntity> li4 = new ArrayList<>();
+            for (CoachEntity coach : li) {
+                if (coach.getAge() <= age_high) {
+                    li4.add(coach);
+                }
+            }
+            li = li4;
+        }
+        if (level != null) {
+            List<CoachEntity> li5 = new ArrayList<>();
+            for (CoachEntity coach : li) {
+                if (coach.getLevel() == level) {
+                    li5.add(coach);
+                }
+            }
+            li = li5;
+        }
+        return Result.success(li);
+    }
+
+    public Result<List<CoachTeachStudentEntity>> getStudentSelect(Long coachId) {
+        List<CoachTeachStudentEntity> li = coachTeachStudentRepository.findByCoachId(coachId);
+        List<CoachTeachStudentEntity> li1 = new ArrayList<>();
+        for (CoachTeachStudentEntity coachTeachStudentEntity : li) {
+            if (!coachTeachStudentEntity.isConfirmed())
+                li1.add(coachTeachStudentEntity);
+        }
+        return Result.success(li1);
+    }
+
+    @Transactional
+    public Result<CoachTeachStudentEntity> reviewStudentSelect(Long coachTeachStudentId, boolean isAccepted) {
+        Optional<CoachTeachStudentEntity> tmp = coachTeachStudentRepository.findById(coachTeachStudentId);
+        if (tmp.isPresent()) {
+            CoachTeachStudentEntity coachTeachStudentEntity = tmp.get();
+            if (isAccepted) {
+                coachTeachStudentEntity.setConfirmed(true);
+                return Result.success(coachTeachStudentEntity);
+            }
+            else {
+                coachTeachStudentRepository.delete(coachTeachStudentEntity);
+                return Result.success();
+            }
+        }
+        else {
+            return Result.error(StatusCode.FAIL, "未找到这条学员申请教练记录");
         }
     }
 

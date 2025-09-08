@@ -6,29 +6,22 @@ import lombok.Data;
 
 @Entity
 @Data
-public class CoachEntity {
+public class SchoolEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @NotBlank
     @Column(nullable = false)
-    private String username;
+    private String schoolname;
 
     @NotBlank
     @Column(nullable = false)
-    private String password;
+    private String address;
 
     @NotBlank
     @Column(nullable = false)
     private String name;
-
-    private boolean isMale;
-
-    private int age;
-
-    @Column(nullable = false)
-    private int schoolId;
 
     @NotBlank
     @Column(nullable = false)
@@ -36,17 +29,10 @@ public class CoachEntity {
 
     private String email;
 
-    @NotBlank
+    private int adminId;
+
     @Column(nullable = false)
-    private String photoPath;
-
-    @NotBlank
-    @Column(nullable = false)
-    private String description;
-
-    private int level;
-
-    private boolean isCertified;
+    private int table_num;
 
     @Version
     private Integer version;
