@@ -10,6 +10,7 @@ import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -38,8 +39,14 @@ public class AdminService {
         return Result.success(temp);
     }
 
-    public Result<List<CoachEntity>> getUncertifiedCoach() {
-        return Result.success(coachRepository.findAllByCertified(false));
+    public Result<List<CoachEntity>> getUncertifiedCoach(Long schoolId) {
+        List<CoachEntity> tmp = coachRepository.findAllByCertified(false);
+        List<CoachEntity> list = new ArrayList<>();
+        for (CoachEntity c : tmp) {
+            if (c.getSchoolId() == schoolId)
+                list.add(c);
+        }
+        return Result.success(list);
     }
 
     @Transactional
