@@ -19,12 +19,8 @@ public class SchoolEntity {
     @Column(nullable = false)
     private String address;
 
-    @NotBlank
-    @Column(nullable = false)
     private String name;
 
-    @NotBlank
-    @Column(nullable = false)
     private String phone;
 
     private String email;

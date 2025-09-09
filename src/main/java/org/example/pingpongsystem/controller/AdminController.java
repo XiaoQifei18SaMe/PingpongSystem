@@ -19,7 +19,7 @@ public class AdminController {
     }
 
     @PostMapping("/login")
-    public Result<AdminEntity> login(@RequestParam String username, @RequestParam String password) {
+    public Result<String> login(@RequestParam String username, @RequestParam String password) {
         return adminService.login(username, password);
     }
 
