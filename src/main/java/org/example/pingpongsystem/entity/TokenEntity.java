@@ -6,29 +6,24 @@ import lombok.Data;
 
 @Entity
 @Data
-public class SchoolEntity {
+public class TokenEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @NotBlank
     @Column(nullable = false)
-    private String schoolname;
+    private String token;
 
-    @NotBlank
-    @Column(nullable = false)
-    private String address;
+    private boolean isSuperAdmin;
 
-    private String name;
+    private boolean isAdmin;
 
-    private String phone;
+    private boolean isCoach;
 
-    private String email;
+    private boolean isStudent;
 
-    private int adminId;
-
-    @Column(nullable = false)
-    private int table_num;
+    private Long userId;
 
     @Version
     private Integer version;

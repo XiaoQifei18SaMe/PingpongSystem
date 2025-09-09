@@ -27,8 +27,9 @@ public class StudentEntity {
 
     private int age;
 
+    @NotBlank
     @Column(nullable = false)
-    private int schoolId;
+    private Long schoolId;
 
     @NotBlank
     @Column(nullable = false)

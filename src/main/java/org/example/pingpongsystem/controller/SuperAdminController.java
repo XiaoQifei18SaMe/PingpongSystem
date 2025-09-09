@@ -23,7 +23,7 @@ public class SuperAdminController {
     }
 
     @PostMapping("/login")
-    public Result<SuperAdminEntity> login(@RequestBody LoginRequest request) {
+    public Result<String> login(@RequestBody LoginRequest request) {
         return superAdminService.login(request.getUsername(), request.getPassword());
     }
 
@@ -33,7 +33,12 @@ public class SuperAdminController {
     }
 
     @PostMapping("/create_school")
-    public Result<SchoolEntity> createSchool(@RequestBody SchoolEntity schoolEntity) {
+    public Result<SchoolEntity> createSchool(@RequestBody SchoolRequest request) {
+        SchoolEntity schoolEntity = new SchoolEntity();
+        schoolEntity.setName(request.getName());
+        schoolEntity.setAddress(request.getLocation());
+        schoolEntity.setTable_num(request.getTableCount());
+        schoolEntity.setAdminId(request.getAdminId());
         return superAdminService.createSchool(schoolEntity);
     }
 
@@ -47,5 +52,13 @@ public class SuperAdminController {
         private String username;
         private String password;
         private String role; // 新增角色字段
+    }
+
+    @Data
+    public static class SchoolRequest {
+        private String name;
+        private String location;
+        private int tableCount;
+        private int adminId;
     }
 }

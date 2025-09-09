@@ -21,12 +21,14 @@ public class SuperAdminService {
     private final SchoolRepository schoolRepository;
     private final TableRepository tableRepository;
     private final AdminRepository adminRepository;
+    private final TokenService tokenService;
 
-    public SuperAdminService(SuperAdminRepository superAdminRepository, SchoolRepository schoolRepository, TableRepository tableRepository, AdminRepository adminRepository) {
+    public SuperAdminService(SuperAdminRepository superAdminRepository, SchoolRepository schoolRepository, TableRepository tableRepository, AdminRepository adminRepository, TokenService tokenService) {
         this.superAdminRepository = superAdminRepository;
         this.schoolRepository = schoolRepository;
         this.tableRepository = tableRepository;
         this.adminRepository = adminRepository;
+        this.tokenService = tokenService;
     }
 
     public Result<SchoolEntity> createSchool(SchoolEntity school) {
@@ -69,7 +71,7 @@ public class SuperAdminService {
         }
     }
 
-    public Result<SuperAdminEntity> login(String username, String password) {
+    public Result<String> login(String username, String password) {
         SuperAdminEntity temp = superAdminRepository.findByUsername(username);
         if (temp == null) {
             return Result.error(StatusCode.USERNAME_NOT_FOUND, "用户名不存在");
@@ -77,7 +79,7 @@ public class SuperAdminService {
         else if (!temp.getPassword().equals(password)) {
             return Result.error(StatusCode.PASSWORD_ERROR, "密码错误");
         }
-        return Result.success(temp);
+        return tokenService.createToken(true, false, false, false, temp.getId());
     }
 
     @Transactional

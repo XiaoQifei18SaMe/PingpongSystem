@@ -24,9 +24,12 @@ import java.util.*;
 public class CoachService {
     private final CoachRepository coachRepository;
     private final CoachTeachStudentRepository coachTeachStudentRepository;
-    public CoachService(CoachRepository coachRepository, CoachTeachStudentRepository coachTeachStudentRepository) {
+    private final TokenService tokenService;
+
+    public CoachService(CoachRepository coachRepository, CoachTeachStudentRepository coachTeachStudentRepository, TokenService tokenService) {
         this.coachRepository = coachRepository;  // 由Spring容器注入实例
         this.coachTeachStudentRepository = coachTeachStudentRepository;
+        this.tokenService = tokenService;
     }
 
     public Result<String> save(CoachEntity coach, MultipartFile file) {
@@ -57,7 +60,7 @@ public class CoachService {
         }
     }
 
-    public Result<CoachEntity> login(String username, String password) {
+    public Result<String> login(String username, String password) {
         CoachEntity temp = coachRepository.findByUsername(username);
         if (temp == null) {
             return Result.error(StatusCode.USERNAME_NOT_FOUND, "用户名不存在");
@@ -65,7 +68,7 @@ public class CoachService {
         else if (!temp.getPassword().equals(password)) {
             return Result.error(StatusCode.PASSWORD_ERROR, "密码错误");
         }
-        return Result.success(temp);
+        return tokenService.createToken(false, false, true, false, temp.getId());
     }
 
     @Transactional

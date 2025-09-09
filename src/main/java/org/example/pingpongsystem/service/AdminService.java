@@ -20,15 +20,17 @@ public class AdminService {
     private final TableRepository tableRepository;
     private final AdminRepository adminRepository;
     private final CoachRepository coachRepository;
+    private final TokenService tokenService;
 
-    public AdminService(SchoolRepository schoolRepository, TableRepository tableRepository, AdminRepository adminRepository, CoachRepository coachRepository) {
+    public AdminService(SchoolRepository schoolRepository, TableRepository tableRepository, AdminRepository adminRepository, CoachRepository coachRepository, TokenService tokenService) {
         this.schoolRepository = schoolRepository;
         this.tableRepository = tableRepository;
         this.adminRepository = adminRepository;
         this.coachRepository = coachRepository;
+        this.tokenService = tokenService;
     }
 
-    public Result<AdminEntity> login(String username, String password) {
+    public Result<String> login(String username, String password) {
         AdminEntity temp = adminRepository.findByUsername(username);
         if (temp == null) {
             return Result.error(StatusCode.USERNAME_NOT_FOUND, "用户名不存在");
@@ -36,7 +38,7 @@ public class AdminService {
         else if (!temp.getPassword().equals(password)) {
             return Result.error(StatusCode.PASSWORD_ERROR, "密码错误");
         }
-        return Result.success(temp);
+        return tokenService.createToken(false, true, false, false, temp.getId());
     }
 
     public Result<List<CoachEntity>> getUncertifiedCoach(Long schoolId) {

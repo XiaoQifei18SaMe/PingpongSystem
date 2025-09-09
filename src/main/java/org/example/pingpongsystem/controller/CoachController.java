@@ -24,7 +24,7 @@ public class CoachController {
     }
 
     @PostMapping("/login")
-    public Result<CoachEntity> login(@RequestParam String username, @RequestParam String password) {
+    public Result<String> login(@RequestParam String username, @RequestParam String password) {
         return coachService.login(username, password);
     }
 

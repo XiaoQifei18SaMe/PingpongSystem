@@ -21,11 +21,13 @@ public class StudentService {
     private final StudentRepository studentRepository;
     private final CoachTeachStudentRepository coachTeachStudentRepository;
     private final CoachRepository coachRepository;
+    private final TokenService tokenService;
 
-    public StudentService(StudentRepository studentRepository, CoachTeachStudentRepository coachTeachStudentRepository, CoachRepository coachRepository) {
+    public StudentService(StudentRepository studentRepository, CoachTeachStudentRepository coachTeachStudentRepository, CoachRepository coachRepository, TokenService tokenService) {
         this.studentRepository = studentRepository;  // 由Spring容器注入实例
         this.coachTeachStudentRepository = coachTeachStudentRepository;
         this.coachRepository = coachRepository;
+        this.tokenService = tokenService;
     }
 
     public boolean save(StudentEntity student) {
@@ -44,7 +46,7 @@ public class StudentService {
         }
     }
 
-    public Result<StudentEntity> login(String username, String password) {
+    public Result<String> login(String username, String password) {
         StudentEntity temp = studentRepository.findByUsername(username);
         if (temp == null) {
             return Result.error(StatusCode.USERNAME_NOT_FOUND, "用户名不存在");
@@ -52,7 +54,7 @@ public class StudentService {
         else if (!temp.getPassword().equals(password)) {
             return Result.error(StatusCode.PASSWORD_ERROR, "密码错误");
         }
-        return Result.success(temp);
+        return tokenService.createToken(false, false, false, true, temp.getId());
     }
 
     @Transactional

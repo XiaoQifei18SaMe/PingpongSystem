@@ -35,7 +35,7 @@ public class StudentController {
     }
 
     @PostMapping("/login")
-    public Result<StudentEntity> login(@RequestParam String username, @RequestParam String password) {
+    public Result<String> login(@RequestParam String username, @RequestParam String password) {
         return studentService.login(username, password);
     }
 
