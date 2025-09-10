@@ -122,4 +122,22 @@ public class TokenService {
             return Result.error(StatusCode.FAIL, "保存token信息失败");
         }
     }
+
+    @Transactional
+    public Result<String> logout(String token) {
+        try {
+            // 先查询token是否存在
+            System.out.println(token);
+            TokenEntity tokenEntity = tokenRepository.findByToken(token);
+            if (tokenEntity == null) {
+                return Result.error(StatusCode.FAIL, "token不存在");
+            }
+            // 删除token记录
+            tokenRepository.deleteByToken(token);
+            return Result.success("success"); // 与前端mock返回格式一致
+        } catch (DataAccessException e) {
+            System.err.println("登出失败：" + e.getMessage());
+            return Result.error(StatusCode.FAIL, "登出失败");
+        }
+    }
 }
