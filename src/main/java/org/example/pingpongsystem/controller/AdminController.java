@@ -24,8 +24,14 @@ public class AdminController {
     }
 
     @GetMapping("/get_coach_register")
-    public Result<List<CoachEntity>> getCoachRegister(@RequestParam Long schoolId) {
-        return adminService.getUncertifiedCoach(schoolId);
+    public Result<List<CoachEntity>> getCoachRegister(@RequestParam(name = "token") String token) {
+        // 通过token获取当前登录管理员的ID，再查询其管理的所有校区的待审核教练
+        return adminService.getUncertifiedCoachesByAdminToken(token);
+    }
+
+    @GetMapping("/get_coach_detail")
+    public Result<CoachEntity> getCoachDetail(@RequestParam Long coachId) {
+        return adminService.getCoachDetail(coachId);
     }
 
     @PostMapping("/certify_coach")
