@@ -32,6 +32,24 @@ public class SuperAdminController {
         return superAdminService.createAdmin(adminEntity);
     }
 
+    // 新增：编辑管理员
+    @PutMapping("/edit_admin")
+    public Result<AdminEntity> editAdmin(@RequestBody AdminEntity adminEntity) {
+        return superAdminService.editAdmin(adminEntity);
+    }
+
+    // 新增：删除管理员
+    @DeleteMapping("/delete_admin/{id}")
+    public Result<Void> deleteAdmin(@PathVariable Long id) {
+        return superAdminService.deleteAdmin(id);
+    }
+
+    // 新增：获取所有管理员列表（便于前端展示编辑/删除目标）
+    @GetMapping("/admins")
+    public Result<List<AdminEntity>> getAllAdmins() {
+        return superAdminService.getAllAdmins();
+    }
+
     @GetMapping("/schools")
     public Result<List<SchoolEntity>> getAllSchools() {
         return superAdminService.getAllSchools();

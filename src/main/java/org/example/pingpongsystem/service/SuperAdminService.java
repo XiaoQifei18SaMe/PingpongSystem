@@ -32,6 +32,105 @@ public class SuperAdminService {
         this.tokenService = tokenService;
     }
 
+    public Result<AdminEntity> createAdmin(AdminEntity admin) {
+        try {
+            adminRepository.save(admin);
+            return Result.success(admin);
+        } catch (OptimisticLockingFailureException e) {
+            System.err.println("数据已被其他用户修改，请刷新后重试");
+            return Result.error(StatusCode.FAIL, "数据已被其他用户修改，请刷新后重试");
+        } catch (ConstraintViolationException e) {
+            System.err.println("必需字段空缺");
+            return Result.error(StatusCode.FAIL, "必需字段空缺");
+        } catch (DataAccessException e) {
+            System.err.println("创建管理员失败：" + e.getMessage());
+            return Result.error(StatusCode.FAIL, "创建管理员失败");
+        }
+    }
+
+    // 新增：获取所有管理员
+    public Result<List<AdminEntity>> getAllAdmins() {
+        try {
+            List<AdminEntity> admins = adminRepository.findAll();
+            return Result.success(admins);
+        } catch (DataAccessException e) {
+            System.err.println("获取管理员列表失败：" + e.getMessage());
+            return Result.error(StatusCode.FAIL, "获取管理员列表失败");
+        }
+    }
+
+    // 新增：编辑管理员
+    @Transactional
+    public Result<AdminEntity> editAdmin(AdminEntity admin) {
+        try {
+            Optional<AdminEntity> existingAdmin = adminRepository.findById(admin.getId());
+            if (existingAdmin.isEmpty()) {
+                return Result.error(StatusCode.USERNAME_NOT_FOUND, "管理员不存在");
+            }
+
+            AdminEntity updateAdmin = existingAdmin.get();
+            // 更新可编辑字段
+            if (admin.getUsername() != null && !admin.getUsername().isEmpty()) {
+                updateAdmin.setUsername(admin.getUsername());
+            }
+            if (admin.getPassword() != null && !admin.getPassword().isEmpty()) {
+                updateAdmin.setPassword(admin.getPassword());
+            }
+            if (admin.getName() != null && !admin.getName().isEmpty()) {
+                updateAdmin.setName(admin.getName());
+            }
+            if (admin.getPhone() != null && !admin.getPhone().isEmpty()) {
+                updateAdmin.setPhone(admin.getPhone());
+            }
+            if (admin.getEmail() != null && !admin.getEmail().isEmpty()) {
+                updateAdmin.setEmail(admin.getEmail());
+            }
+
+            AdminEntity savedAdmin = adminRepository.save(updateAdmin);
+            return Result.success(savedAdmin);
+        } catch (OptimisticLockingFailureException e) {
+            return Result.error(StatusCode.FAIL, "数据已被修改，请刷新后重试");
+        } catch (ConstraintViolationException e) {
+            return Result.error(StatusCode.FAIL, "必需字段不能为空");
+        } catch (DataAccessException e) {
+            System.err.println("编辑管理员失败：" + e.getMessage());
+            return Result.error(StatusCode.FAIL, "编辑管理员失败");
+        }
+    }
+
+    // 新增：删除管理员
+    @Transactional
+    public Result<Void> deleteAdmin(Long id) {
+        try {
+            if (!adminRepository.existsById(id)) {
+                return Result.error(StatusCode.USERNAME_NOT_FOUND, "管理员不存在");
+            }
+
+            // 检查是否有学校关联该管理员（可选，根据业务需求）
+            List<SchoolEntity> schools = schoolRepository.findByAdminId(id);
+            if (!schools.isEmpty()) {
+                return Result.error(StatusCode.FAIL, "该管理员关联了校区，请先解除关联");
+            }
+
+            adminRepository.deleteById(id);
+            return Result.success();
+        } catch (DataAccessException e) {
+            System.err.println("删除管理员失败：" + e.getMessage());
+            return Result.error(StatusCode.FAIL, "删除管理员失败");
+        }
+    }
+
+
+    public Result<String> login(String username, String password) {
+        SuperAdminEntity temp = superAdminRepository.findByUsername(username);
+        if (temp == null) {
+            return Result.error(StatusCode.USERNAME_NOT_FOUND, "用户名不存在");
+        }
+        else if (!temp.getPassword().equals(password)) {
+            return Result.error(StatusCode.PASSWORD_ERROR, "密码错误");
+        }
+        return tokenService.createToken(true, false, false, false, temp.getId());
+    }
     public Result<SchoolEntity> createSchool(SchoolEntity school) {
         try {
             schoolRepository.save(school);
@@ -66,34 +165,6 @@ public class SuperAdminService {
             return Result.error(StatusCode.FAIL, "获取学校列表失败");
         }
     }
-
-    public Result<AdminEntity> createAdmin(AdminEntity admin) {
-        try {
-            adminRepository.save(admin);
-            return Result.success(admin);
-        } catch (OptimisticLockingFailureException e) {
-            System.err.println("数据已被其他用户修改，请刷新后重试");
-            return Result.error(StatusCode.FAIL, "数据已被其他用户修改，请刷新后重试");
-        } catch (ConstraintViolationException e) {
-            System.err.println("必需字段空缺");
-            return Result.error(StatusCode.FAIL, "必需字段空缺");
-        } catch (DataAccessException e) {
-            System.err.println("创建管理员失败：" + e.getMessage());
-            return Result.error(StatusCode.FAIL, "创建管理员失败");
-        }
-    }
-
-    public Result<String> login(String username, String password) {
-        SuperAdminEntity temp = superAdminRepository.findByUsername(username);
-        if (temp == null) {
-            return Result.error(StatusCode.USERNAME_NOT_FOUND, "用户名不存在");
-        }
-        else if (!temp.getPassword().equals(password)) {
-            return Result.error(StatusCode.PASSWORD_ERROR, "密码错误");
-        }
-        return tokenService.createToken(true, false, false, false, temp.getId());
-    }
-
 
     @Transactional
     public Result<SchoolEntity> reviseSchool(SchoolEntity school) {
