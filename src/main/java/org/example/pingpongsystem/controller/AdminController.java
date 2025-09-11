@@ -19,8 +19,8 @@ public class AdminController {
     }
 
     @PostMapping("/login")
-    public Result<String> login(@RequestParam String username, @RequestParam String password) {
-        return adminService.login(username, password);
+    public Result<String> login(@RequestBody SuperAdminController.LoginRequest request) {
+        return adminService.login(request.getUsername(), request.getPassword());
     }
 
     @GetMapping("/get_coach_register")

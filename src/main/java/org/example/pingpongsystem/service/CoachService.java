@@ -67,6 +67,9 @@ public class CoachService {
         }
         else if (!temp.getPassword().equals(password)) {
             return Result.error(StatusCode.PASSWORD_ERROR, "密码错误");
+        }// 新增审核状态检查
+        else if (!temp.isCertified()) {
+            return Result.error(StatusCode.FAIL, "账号待审核，请等待管理员审核通过后再登录");
         }
         return tokenService.createToken(false, false, true, false, temp.getId());
     }
