@@ -14,6 +14,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         // 本地图片存储路径（从Utility中获取）
         String coachPhotoPath = Utility.CoachPhotoPath.replace("\\", "/");
+        System.out.println("file:" + coachPhotoPath + "/");
         // 映射规则：前端访问 /coach-photos/** 路径时，实际访问本地CoachPhoto目录
         registry.addResourceHandler("/coach-photos/**")
                 .addResourceLocations("file:" + coachPhotoPath + "/");

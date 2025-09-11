@@ -1,5 +1,6 @@
 package org.example.pingpongsystem.controller;
 
+import lombok.Data;
 import org.example.pingpongsystem.entity.*;
 import org.example.pingpongsystem.service.AdminService;
 import org.example.pingpongsystem.service.CoachService;
@@ -35,7 +36,12 @@ public class AdminController {
     }
 
     @PostMapping("/certify_coach")
-    public Result<CoachEntity> certifyCoach(@RequestParam Long coachId, @RequestParam boolean isAccepted) {
-        return adminService.certifyCoach(coachId, isAccepted);
+    public Result<CoachEntity> certifyCoach(@RequestBody CertifyRequest request) {
+        return adminService.certifyCoach(request.coachId, request.isAccepted);
+    }
+    @Data
+    public static class CertifyRequest {
+        private Long coachId;
+        private boolean isAccepted;
     }
 }
