@@ -78,6 +78,25 @@ public class SuperAdminController {
     public Result<Void> deleteSchool(@PathVariable Long id) {
         return superAdminService.deleteSchool(id);
     }
+
+    // 超级管理员教练审核
+    //获取所有待审核的教练
+    @GetMapping("/get_all_uncertified_coaches")
+    public Result<List<CoachEntity>> getAllUncertifiedCoaches() {
+        return superAdminService.getAllUncertifiedCoaches();
+    }
+
+    //审核教练
+    @PostMapping("/super_certify_coach")
+    public Result<CoachEntity> superCertifyCoach(@RequestBody AdminController.CertifyRequest request) {
+        return superAdminService.superCertifyCoach(request.getCoachId(), request.getIsAccepted(),request.getLevel());
+    }
+
+    //获取教练详情
+    @GetMapping("/get_super_coach_detail")
+    public Result<CoachEntity> getSuperCoachDetail(@RequestParam Long coachId) {
+        return superAdminService.getSuperCoachDetail(coachId);
+    }
     @Data
     public static class LoginRequest {
         private String username;

@@ -92,13 +92,15 @@ public class AdminService {
     }
 
     @Transactional
-    public Result<CoachEntity> certifyCoach(Long coachId, boolean isAccepted) {
+    public Result<CoachEntity> certifyCoach(Long coachId, boolean isAccepted,int level) {
         Optional<CoachEntity> tmp = coachRepository.findById(coachId);
         if (tmp.isPresent()) {
             CoachEntity coach = tmp.get();
             if (isAccepted) {
                 coach.setCertified(true);
-                return Result.success(coachRepository.save(coach));
+                coach.setLevel(level);
+                System.out.println(coach.getName());
+                return Result.success(coach);
             }
             else {
                 coachRepository.delete(coach);

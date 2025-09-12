@@ -2,10 +2,7 @@ package org.example.pingpongsystem.service;
 
 import jakarta.validation.ConstraintViolationException;
 import org.example.pingpongsystem.entity.*;
-import org.example.pingpongsystem.repository.AdminRepository;
-import org.example.pingpongsystem.repository.SchoolRepository;
-import org.example.pingpongsystem.repository.SuperAdminRepository;
-import org.example.pingpongsystem.repository.TableRepository;
+import org.example.pingpongsystem.repository.*;
 import org.example.pingpongsystem.utility.Result;
 import org.example.pingpongsystem.utility.StatusCode;
 import org.springframework.dao.DataAccessException;
@@ -23,13 +20,15 @@ public class SuperAdminService {
     private final TableRepository tableRepository;
     private final AdminRepository adminRepository;
     private final TokenService tokenService;
+    private final CoachRepository coachRepository;
 
-    public SuperAdminService(SuperAdminRepository superAdminRepository, SchoolRepository schoolRepository, TableRepository tableRepository, AdminRepository adminRepository, TokenService tokenService) {
+    public SuperAdminService(SuperAdminRepository superAdminRepository, SchoolRepository schoolRepository, TableRepository tableRepository, AdminRepository adminRepository, TokenService tokenService, CoachRepository coachRepository) {
         this.superAdminRepository = superAdminRepository;
         this.schoolRepository = schoolRepository;
         this.tableRepository = tableRepository;
         this.adminRepository = adminRepository;
         this.tokenService = tokenService;
+        this.coachRepository = coachRepository;
     }
 
     public Result<AdminEntity> createAdmin(AdminEntity admin) {
@@ -231,6 +230,46 @@ public class SuperAdminService {
         } catch (DataAccessException e) {
             System.err.println("删除学校失败：" + e.getMessage());
             return Result.error(StatusCode.FAIL, "删除学校失败");
+        }
+    }
+
+    // 获取所有待审核教练
+    public Result<List<CoachEntity>> getAllUncertifiedCoaches() {
+        try {
+            // 查询所有未审核的教练
+            List<CoachEntity> uncertifiedCoaches = coachRepository.findAllByisCertified(false);
+            return Result.success(uncertifiedCoaches);
+        } catch (DataAccessException e) {
+            System.err.println("获取所有未审核教练失败：" + e.getMessage());
+            return Result.error(StatusCode.FAIL, "获取所有未审核教练失败");
+        }
+    }
+    //获取教练信息
+    public Result<CoachEntity> getSuperCoachDetail(Long coachId) {
+        Optional<CoachEntity> coachOpt = coachRepository.findById(coachId);
+        if (coachOpt.isPresent()) {
+            CoachEntity coach = coachOpt.get();
+            return Result.success(coach);
+        } else {
+            return Result.error(StatusCode.FAIL, "未找到该教练信息");
+        }
+    }
+    //审核教练
+    @Transactional
+    public Result<CoachEntity> superCertifyCoach(Long coachId, boolean isAccepted, int level) {
+        Optional<CoachEntity> tmp = coachRepository.findById(coachId);
+        if (tmp.isPresent()) {
+            CoachEntity coach = tmp.get();
+            if (isAccepted) {
+                coach.setCertified(true);
+                coach.setLevel(level);
+                return Result.success(coachRepository.save(coach));
+            } else {
+                coachRepository.delete(coach);
+                return Result.success();
+            }
+        } else {
+            return Result.error(StatusCode.FAIL, "该教练不存在");
         }
     }
 }

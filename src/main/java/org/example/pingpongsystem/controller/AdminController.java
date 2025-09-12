@@ -37,11 +37,14 @@ public class AdminController {
 
     @PostMapping("/certify_coach")
     public Result<CoachEntity> certifyCoach(@RequestBody CertifyRequest request) {
-        return adminService.certifyCoach(request.coachId, request.isAccepted);
+        System.out.println(request.coachId);
+        System.out.println(request.isAccepted);
+        return adminService.certifyCoach(request.coachId, request.isAccepted,request.level);
     }
     @Data
     public static class CertifyRequest {
         private Long coachId;
-        private boolean isAccepted;
+        private Boolean isAccepted;
+        private int level;
     }
 }
