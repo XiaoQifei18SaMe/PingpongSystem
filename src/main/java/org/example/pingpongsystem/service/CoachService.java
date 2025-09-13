@@ -112,11 +112,12 @@ public class CoachService {
                     temp.setCertified(false);
                 }
             }
-            // 新增：如果传入了头像路径，更新头像
-            if (coach.getAvatar() != null && !coach.getAvatar().isEmpty()) {
-                temp.setAvatar(coach.getAvatar());  // 假设CoachEntity新增了avatar字段
-            }
 
+            temp.setAvatar(coach.getAvatar());  // 假设CoachEntity新增了avatar字段
+
+            if(coach.getPhotoPath().isEmpty()){
+                return Result.error(StatusCode.FAIL,"照片不能为空");
+            }
             // 新增：如果传入了教练照片路径，更新照片（原逻辑保留，这里兼容前端分离上传）
             if (coach.getPhotoPath() != null && !coach.getPhotoPath().isEmpty()) {
                 temp.setPhotoPath(coach.getPhotoPath());

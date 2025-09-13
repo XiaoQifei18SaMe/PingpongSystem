@@ -30,6 +30,7 @@ public class CoachController {
 
     @PostMapping("/update_info")
     public Result<CoachEntity> updateInfo(@RequestBody CoachEntity coachEntity) {
+        System.out.println(coachEntity.getAvatar());
         return coachService.revise(coachEntity);
     }
 

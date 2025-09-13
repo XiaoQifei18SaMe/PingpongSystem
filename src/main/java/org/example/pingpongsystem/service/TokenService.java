@@ -44,7 +44,7 @@ public class TokenService {
                     infoAns.setEmail(admin.get().getEmail());
                     // 补充角色信息（前端需要role字段）
                     infoAns.setRole("super_admin");
-                    infoAns.setUserId(tokenEntity.getUserId());
+                    infoAns.setUserId(admin.get().getId());
                     infoAns.setAvatar(admin.get().getAvatar());
                     return Result.success(infoAns);
                 } else return Result.error(StatusCode.FAIL, "超级管理员未找到");
@@ -61,7 +61,8 @@ public class TokenService {
                     // 补充角色信息
                     infoAns.setRole("admin");
                     infoAns.setAvatar(admin.get().getAvatar());
-                    infoAns.setUserId(tokenEntity.getUserId());
+                    infoAns.setUserId(admin.get().getId());
+                    infoAns.setName(admin.get().getName());
                     return Result.success(infoAns);
                 } else return Result.error(StatusCode.FAIL, "管理员未找到");
             }
@@ -79,10 +80,11 @@ public class TokenService {
                     infoAns.setSchoolId(coach.get().getSchoolId());
                     // 补充角色信息
                     infoAns.setRole("coach");
-                    infoAns.setUserId(tokenEntity.getUserId());
+                    infoAns.setUserId(coach.get().getId());
                     infoAns.setAvatar(coach.get().getAvatar());
                     infoAns.setPhotoPath(coach.get().getPhotoPath());
-                    infoAns.setDiscription(coach.get().getDescription());
+                    infoAns.setDescription(coach.get().getDescription());
+                    infoAns.setName(coach.get().getName());
                     return Result.success(infoAns);
                 } else return Result.error(StatusCode.FAIL, "教练未找到");
             }
@@ -100,8 +102,9 @@ public class TokenService {
                     infoAns.setSchoolId(student.get().getSchoolId());
                     // 补充角色信息
                     infoAns.setRole("student");
-                    infoAns.setUserId(tokenEntity.getUserId());
+                    infoAns.setUserId(student.get().getId());
                     infoAns.setAvatar(student.get().getAvatar());
+                    infoAns.setName(student.get().getName());
                     return Result.success(infoAns);
                 } else return Result.error(StatusCode.FAIL, "学员未找到");
             }

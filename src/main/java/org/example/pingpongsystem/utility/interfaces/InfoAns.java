@@ -15,5 +15,6 @@ public class InfoAns {
     private Long UserId;
     private String avatar;
     private String photoPath;
-    private String discription;
+    private String description;
+    private String name;
 }
