@@ -5,6 +5,7 @@ import org.example.pingpongsystem.entity.CoachEntity;
 import org.example.pingpongsystem.entity.CoachTeachStudentEntity;
 import org.example.pingpongsystem.repository.CoachRepository;
 import org.example.pingpongsystem.repository.CoachTeachStudentRepository;
+import org.example.pingpongsystem.utility.FileUploadUtil;
 import org.example.pingpongsystem.utility.Result;
 import org.example.pingpongsystem.utility.StatusCode;
 import org.example.pingpongsystem.utility.Utility;
@@ -75,7 +76,7 @@ public class CoachService {
     }
 
     @Transactional
-    public Result<CoachEntity> revise(CoachEntity coach, MultipartFile file) {
+    public Result<CoachEntity> revise(CoachEntity coach) {
         CoachEntity temp = coachRepository.findByUsername(coach.getUsername());
         if (temp == null) {
             return Result.error(StatusCode.USERNAME_NOT_FOUND, "用户名不存在");
@@ -104,28 +105,24 @@ public class CoachService {
                 if (!coach.getEmail().isEmpty())
                     temp.setEmail(coach.getEmail());
             }
-            if (!file.isEmpty()) {
-                try {
-                    Result<String> result = savePhoto(file);
-                    if (!result.isSuccess()) return Result.error(StatusCode.FAIL, result.getMessage());
 
-                    Path path = Paths.get(coach.getPhotoPath());
-                    Files.delete(path);
-
-                    temp.setPhotoPath(result.getData());
-                    temp.setCertified(false);
-                } catch (IOException e) {
-                    System.err.println("IO失败: " + e.getMessage());
-                    e.printStackTrace();
-                    return Result.error(StatusCode.FAIL, "IO失败");
-                }
-            }
             if (!coach.getDescription().equals(temp.getDescription())) {
                 if (!coach.getDescription().isEmpty()) {
                     temp.setDescription(coach.getDescription());
                     temp.setCertified(false);
                 }
             }
+            // 新增：如果传入了头像路径，更新头像
+            if (coach.getAvatar() != null && !coach.getAvatar().isEmpty()) {
+                temp.setAvatar(coach.getAvatar());  // 假设CoachEntity新增了avatar字段
+            }
+
+            // 新增：如果传入了教练照片路径，更新照片（原逻辑保留，这里兼容前端分离上传）
+            if (coach.getPhotoPath() != null && !coach.getPhotoPath().isEmpty()) {
+                temp.setPhotoPath(coach.getPhotoPath());
+                temp.setCertified(false);  // 照片变更需重新审核
+            }
+
             return Result.success(temp);
         }
     }
@@ -271,4 +268,26 @@ public class CoachService {
 //        // 5. 保存路径到数据库
 //        return Result.success(filePath.toString());
 //    }
+
+    @Transactional
+    public Result<String> uploadAvatar(Long coachId, MultipartFile file) {
+        try {
+            Optional<CoachEntity> coachOpt = coachRepository.findById(coachId);
+            if (coachOpt.isEmpty()) {
+                return Result.error(StatusCode.USERNAME_NOT_FOUND, "教练不存在");
+            }
+            CoachEntity coach = coachOpt.get();
+
+            // 上传头像并更新路径
+            Result<String> uploadResult = FileUploadUtil.uploadAvatar(file);
+            if (!uploadResult.isSuccess()) {
+                return uploadResult;
+            }
+            coach.setAvatar(uploadResult.getData());
+            coachRepository.save(coach);
+            return Result.success("头像上传成功");
+        } catch (IOException e) {
+            return Result.error(StatusCode.FAIL, "头像上传失败：" + e.getMessage());
+        }
+    }
 }

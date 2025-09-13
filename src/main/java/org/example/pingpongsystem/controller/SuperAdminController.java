@@ -114,4 +114,13 @@ public class SuperAdminController {
         private String phone; // 联系电话
         private String email; // 联系邮箱
     }
+
+    @PostMapping("/upload_avatar")
+    public Result<String> uploadAvatar(
+            @RequestParam Long superAdminId,
+            @RequestParam MultipartFile file
+    ) {
+        return superAdminService.uploadAvatar(superAdminId, file);
+    }
+
 }

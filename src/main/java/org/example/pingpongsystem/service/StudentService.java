@@ -7,13 +7,16 @@ import org.example.pingpongsystem.entity.StudentEntity;
 import org.example.pingpongsystem.repository.CoachRepository;
 import org.example.pingpongsystem.repository.CoachTeachStudentRepository;
 import org.example.pingpongsystem.repository.StudentRepository;
+import org.example.pingpongsystem.utility.FileUploadUtil;
 import org.example.pingpongsystem.utility.Result;
 import org.example.pingpongsystem.utility.StatusCode;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.Optional;
 
 @Service
@@ -120,6 +123,27 @@ public class StudentService {
         }
         else {
             return Result.error(StatusCode.FAIL, "未找到该教练");
+        }
+    }
+
+    @Transactional
+    public Result<String> uploadAvatar(Long studentId, MultipartFile file) {
+        try {
+            Optional<StudentEntity> studentOpt = studentRepository.findById(studentId);
+            if (studentOpt.isEmpty()) {
+                return Result.error(StatusCode.USERNAME_NOT_FOUND, "学员不存在");
+            }
+            StudentEntity student = studentOpt.get();
+
+            Result<String> uploadResult = FileUploadUtil.uploadAvatar(file);
+            if (!uploadResult.isSuccess()) {
+                return uploadResult;
+            }
+            student.setAvatar(uploadResult.getData());
+            studentRepository.save(student);
+            return Result.success("头像上传成功");
+        } catch (IOException e) {
+            return Result.error(StatusCode.FAIL, "头像上传失败：" + e.getMessage());
         }
     }
 }

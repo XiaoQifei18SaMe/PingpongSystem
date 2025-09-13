@@ -29,8 +29,8 @@ public class CoachController {
     }
 
     @PostMapping("/update_info")
-    public Result<CoachEntity> updateInfo(@RequestBody CoachEntity coachEntity, MultipartFile file) {
-        return coachService.revise(coachEntity, file);
+    public Result<CoachEntity> updateInfo(@RequestBody CoachEntity coachEntity) {
+        return coachService.revise(coachEntity);
     }
 
     @GetMapping("/selected_by_student")
@@ -41,5 +41,13 @@ public class CoachController {
     @PostMapping("/review_student_select")
     public Result<CoachTeachStudentEntity> reviewStudentSelect(@RequestParam Long coachTeachStudentId, @RequestParam boolean isAccepted) {
         return coachService.reviewStudentSelect(coachTeachStudentId, isAccepted);
+    }
+
+    @PostMapping("/upload_avatar")
+    public Result<String> uploadAvatar(
+            @RequestParam Long coachId,
+            @RequestParam MultipartFile file
+    ) {
+        return coachService.uploadAvatar(coachId, file);
     }
 }

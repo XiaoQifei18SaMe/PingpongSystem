@@ -50,6 +50,8 @@ public class CoachEntity {
 
     private boolean isCertified;
 
+    private String avatar;
+
     @Version
     private Integer version;
 }

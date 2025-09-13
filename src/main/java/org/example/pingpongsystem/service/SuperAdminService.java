@@ -3,13 +3,16 @@ package org.example.pingpongsystem.service;
 import jakarta.validation.ConstraintViolationException;
 import org.example.pingpongsystem.entity.*;
 import org.example.pingpongsystem.repository.*;
+import org.example.pingpongsystem.utility.FileUploadUtil;
 import org.example.pingpongsystem.utility.Result;
 import org.example.pingpongsystem.utility.StatusCode;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
@@ -270,6 +273,27 @@ public class SuperAdminService {
             }
         } else {
             return Result.error(StatusCode.FAIL, "该教练不存在");
+        }
+    }
+
+    @Transactional
+    public Result<String> uploadAvatar(Long superAdminId, MultipartFile file) {
+        try {
+            Optional<SuperAdminEntity> superAdminOpt = superAdminRepository.findById(superAdminId);
+            if (superAdminOpt.isEmpty()) {
+                return Result.error(StatusCode.USERNAME_NOT_FOUND, "超级管理员不存在");
+            }
+            SuperAdminEntity superAdmin = superAdminOpt.get();
+
+            Result<String> uploadResult = FileUploadUtil.uploadAvatar(file);
+            if (!uploadResult.isSuccess()) {
+                return uploadResult;
+            }
+            superAdmin.setAvatar(uploadResult.getData());
+            superAdminRepository.save(superAdmin);
+            return Result.success("头像上传成功");
+        } catch (IOException e) {
+            return Result.error(StatusCode.FAIL, "头像上传失败：" + e.getMessage());
         }
     }
 }

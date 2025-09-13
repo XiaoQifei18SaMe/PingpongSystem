@@ -3,6 +3,7 @@ package org.example.pingpongsystem.service;
 import jakarta.validation.ConstraintViolationException;
 import org.example.pingpongsystem.entity.*;
 import org.example.pingpongsystem.repository.*;
+import org.example.pingpongsystem.utility.FileUploadUtil;
 import org.example.pingpongsystem.utility.Result;
 import org.example.pingpongsystem.utility.StatusCode;
 import org.example.pingpongsystem.utility.interfaces.InfoAns;
@@ -10,7 +11,9 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -150,6 +153,27 @@ public class AdminService {
                 temp.setTable_num(school.getTable_num());
             }
             return Result.success(temp);
+        }
+    }
+
+    @Transactional
+    public Result<String> uploadAvatar(Long adminId, MultipartFile file) {
+        try {
+            Optional<AdminEntity> adminOpt = adminRepository.findById(adminId);
+            if (adminOpt.isEmpty()) {
+                return Result.error(StatusCode.USERNAME_NOT_FOUND, "管理员不存在");
+            }
+            AdminEntity admin = adminOpt.get();
+
+            Result<String> uploadResult = FileUploadUtil.uploadAvatar(file);
+            if (!uploadResult.isSuccess()) {
+                return uploadResult;
+            }
+            admin.setAvatar(uploadResult.getData());
+            adminRepository.save(admin);
+            return Result.success("头像上传成功");
+        } catch (IOException e) {
+            return Result.error(StatusCode.FAIL, "头像上传失败：" + e.getMessage());
         }
     }
 }

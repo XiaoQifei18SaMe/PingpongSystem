@@ -8,6 +8,7 @@ import org.example.pingpongsystem.service.StudentService;
 import org.example.pingpongsystem.utility.Result;
 import org.example.pingpongsystem.utility.StatusCode;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -55,5 +56,13 @@ public class StudentController {
     public Result<CoachTeachStudentEntity> selectCoach(@RequestParam(value = "coachId") Long coachId,
                                                        @RequestParam(value = "studentId") Long studentId) {
         return studentService.selectCoach(coachId, studentId);
+    }
+
+    @PostMapping("/upload_avatar")
+    public Result<String> uploadAvatar(
+            @RequestParam Long studentId,
+            @RequestParam MultipartFile file
+    ) {
+        return studentService.uploadAvatar(studentId, file);
     }
 }

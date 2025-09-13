@@ -18,6 +18,11 @@ public class WebMvcConfig implements WebMvcConfigurer {
         // 映射规则：前端访问 /coach-photos/** 路径时，实际访问本地CoachPhoto目录
         registry.addResourceHandler("/coach-photos/**")
                 .addResourceLocations("file:" + coachPhotoPath + "/");
+
+        // 2. 新增个人头像映射（使用单独目录，避免与教练照片混淆）
+        String avatarPath = Utility.AvatarPath.replace("\\", "/"); // 需在Utility中定义头像本地目录
+        registry.addResourceHandler("/user-avatars/**") // 前端访问前缀
+                .addResourceLocations("file:" + avatarPath + "/"); // 本地头像存储目录
     }
 
     // 配置跨域：允许前端9528端口访问

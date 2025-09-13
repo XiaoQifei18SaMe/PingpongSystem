@@ -41,10 +41,20 @@ public class AdminController {
         System.out.println(request.isAccepted);
         return adminService.certifyCoach(request.coachId, request.isAccepted,request.level);
     }
+
     @Data
     public static class CertifyRequest {
         private Long coachId;
         private Boolean isAccepted;
         private int level;
     }
+
+    @PostMapping("/upload_avatar")
+    public Result<String> uploadAvatar(
+            @RequestParam Long adminId,
+            @RequestParam MultipartFile file
+    ) {
+        return adminService.uploadAvatar(adminId, file);
+    }
+
 }

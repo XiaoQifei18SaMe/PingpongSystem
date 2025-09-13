@@ -45,6 +45,7 @@ public class TokenService {
                     // 补充角色信息（前端需要role字段）
                     infoAns.setRole("super_admin");
                     infoAns.setUserId(tokenEntity.getUserId());
+                    infoAns.setAvatar(admin.get().getAvatar());
                     return Result.success(infoAns);
                 } else return Result.error(StatusCode.FAIL, "超级管理员未找到");
             }
@@ -59,6 +60,7 @@ public class TokenService {
                     infoAns.setEmail(admin.get().getEmail());
                     // 补充角色信息
                     infoAns.setRole("admin");
+                    infoAns.setAvatar(admin.get().getAvatar());
                     infoAns.setUserId(tokenEntity.getUserId());
                     return Result.success(infoAns);
                 } else return Result.error(StatusCode.FAIL, "管理员未找到");
@@ -78,6 +80,9 @@ public class TokenService {
                     // 补充角色信息
                     infoAns.setRole("coach");
                     infoAns.setUserId(tokenEntity.getUserId());
+                    infoAns.setAvatar(coach.get().getAvatar());
+                    infoAns.setPhotoPath(coach.get().getPhotoPath());
+                    infoAns.setDiscription(coach.get().getDescription());
                     return Result.success(infoAns);
                 } else return Result.error(StatusCode.FAIL, "教练未找到");
             }
@@ -96,6 +101,7 @@ public class TokenService {
                     // 补充角色信息
                     infoAns.setRole("student");
                     infoAns.setUserId(tokenEntity.getUserId());
+                    infoAns.setAvatar(student.get().getAvatar());
                     return Result.success(infoAns);
                 } else return Result.error(StatusCode.FAIL, "学员未找到");
             }

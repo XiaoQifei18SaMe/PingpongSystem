@@ -13,4 +13,7 @@ public class InfoAns {
     private Long schoolId;
     private String role;
     private Long UserId;
+    private String avatar;
+    private String photoPath;
+    private String discription;
 }
