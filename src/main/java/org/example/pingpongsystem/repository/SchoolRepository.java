@@ -10,4 +10,5 @@ public interface SchoolRepository extends JpaRepository<SchoolEntity, Long> {
     SchoolEntity findBySchoolname(String name);
     // 新增：根据管理员ID查询关联的学校
     List<SchoolEntity> findByAdminId(Long adminId);
+
 }
