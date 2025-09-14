@@ -6,6 +6,7 @@ import org.example.pingpongsystem.repository.*;
 import org.example.pingpongsystem.utility.FileUploadUtil;
 import org.example.pingpongsystem.utility.Result;
 import org.example.pingpongsystem.utility.StatusCode;
+import org.example.pingpongsystem.utility.interfaces.InfoAns;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
@@ -36,6 +37,12 @@ public class SuperAdminService {
 
     public Result<AdminEntity> createAdmin(AdminEntity admin) {
         try {
+            // 新增：检查用户名是否已存在
+            AdminEntity existing = adminRepository.findByUsername(admin.getUsername());
+            if (existing != null) {
+                return Result.error(StatusCode.FAIL, "用户名已存在");
+            }
+
             adminRepository.save(admin);
             return Result.success(admin);
         } catch (OptimisticLockingFailureException e) {
@@ -294,6 +301,60 @@ public class SuperAdminService {
             return Result.success("头像上传成功");
         } catch (IOException e) {
             return Result.error(StatusCode.FAIL, "头像上传失败：" + e.getMessage());
+        }
+    }
+
+    @Transactional
+    public Result<SuperAdminEntity> updateInfo(InfoAns info) {
+        try {
+            // 验证用户ID和角色
+            if (info.getUserId() == null || !"super_admin".equals(info.getRole())) {
+                return Result.error(StatusCode.FAIL, "无效的超级管理员信息");
+            }
+
+            // 查询超级管理员是否存在
+            Optional<SuperAdminEntity> superAdminOpt = superAdminRepository.findById(info.getUserId());
+            if (superAdminOpt.isEmpty()) {
+                return Result.error(StatusCode.USERNAME_NOT_FOUND, "超级管理员不存在");
+            }
+
+            SuperAdminEntity superAdmin = superAdminOpt.get();
+
+            // 只更新SuperAdminEntity中存在的字段
+            if (info.getUsername() != null && !info.getUsername().isEmpty()) {
+                // 检查用户名是否已存在（当前用户除外）
+                SuperAdminEntity existing = superAdminRepository.findByUsername(info.getUsername());
+                if (existing != null && !existing.getId().equals(superAdmin.getId())) {
+                    return Result.error(StatusCode.FAIL, "用户名已存在");
+                }
+                superAdmin.setUsername(info.getUsername());
+            }
+
+            if (info.getPassword() != null && !info.getPassword().isEmpty()) {
+                superAdmin.setPassword(info.getPassword());
+            }
+
+            if (info.getPhone() != null && !info.getPhone().isEmpty()) {
+                superAdmin.setPhone(info.getPhone());
+            }
+
+            if (info.getEmail() != null && !info.getEmail().isEmpty()) {
+                superAdmin.setEmail(info.getEmail());
+            }
+
+            if (info.getAvatar() != null) {
+                superAdmin.setAvatar(info.getAvatar());
+            }
+
+            // 保存更新
+            SuperAdminEntity updated = superAdminRepository.save(superAdmin);
+            return Result.success(updated);
+
+        } catch (OptimisticLockingFailureException e) {
+            return Result.error(StatusCode.FAIL, "数据已被修改，请刷新后重试");
+        } catch (DataAccessException e) {
+            System.err.println("更新超级管理员信息失败：" + e.getMessage());
+            return Result.error(StatusCode.FAIL, "更新信息失败");
         }
     }
 }

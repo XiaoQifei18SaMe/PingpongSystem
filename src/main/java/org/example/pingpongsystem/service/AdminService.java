@@ -176,4 +176,63 @@ public class AdminService {
             return Result.error(StatusCode.FAIL, "头像上传失败：" + e.getMessage());
         }
     }
+
+    @Transactional
+    public Result<AdminEntity> updateInfo(InfoAns info) {
+        try {
+            // 验证用户ID
+            if (info.getUserId() == null || !"admin".equals(info.getRole())) {
+                return Result.error(StatusCode.FAIL, "无效的管理员信息");
+            }
+
+            // 查询管理员是否存在
+            Optional<AdminEntity> adminOpt = adminRepository.findById(info.getUserId());
+            if (adminOpt.isEmpty()) {
+                return Result.error(StatusCode.USERNAME_NOT_FOUND, "管理员不存在");
+            }
+
+            AdminEntity admin = adminOpt.get();
+
+            // 只更新AdminEntity中存在的字段（参考AdminEntity定义）
+            if (info.getUsername() != null && !info.getUsername().isEmpty()) {
+                // 检查用户名是否已存在（排除当前用户自身）
+                AdminEntity existing = adminRepository.findByUsername(info.getUsername());
+                if (existing != null && !existing.getId().equals(admin.getId())) {
+                    return Result.error(StatusCode.FAIL, "用户名已存在");
+                }
+                admin.setUsername(info.getUsername());
+            }
+
+            if (info.getPassword() != null && !info.getPassword().isEmpty()) {
+                admin.setPassword(info.getPassword());
+            }
+
+            if (info.getName() != null && !info.getName().isEmpty()) {
+                admin.setName(info.getName());
+            }
+
+            if (info.getPhone() != null && !info.getPhone().isEmpty()) {
+                admin.setPhone(info.getPhone());
+            }
+
+            if (info.getEmail() != null && !info.getEmail().isEmpty()) {
+                admin.setEmail(info.getEmail());
+            }
+
+            if (info.getAvatar() != null) {
+                admin.setAvatar(info.getAvatar());
+            }
+
+            // 保存更新
+            AdminEntity updated = adminRepository.save(admin);
+            return Result.success(updated);
+
+        } catch (OptimisticLockingFailureException e) {
+            return Result.error(StatusCode.FAIL, "数据已被修改，请刷新后重试");
+        } catch (DataAccessException e) {
+            System.err.println("更新管理员信息失败：" + e.getMessage());
+            return Result.error(StatusCode.FAIL, "更新信息失败");
+        }
+    }
+
 }

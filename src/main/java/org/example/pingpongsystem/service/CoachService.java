@@ -35,7 +35,12 @@ public class CoachService {
 
     public Result<String> save(CoachEntity coach, MultipartFile file) {
         try {
-            coach.setId(null);
+            CoachEntity existing = coachRepository.findByUsername(coach.getUsername());
+            if (existing != null) {
+                return Result.error(StatusCode.FAIL, "用户名已存在");
+            }
+
+            coach.setId(null);//为什么？
             coach.setCertified(false);
             coach.setVersion(null);
 

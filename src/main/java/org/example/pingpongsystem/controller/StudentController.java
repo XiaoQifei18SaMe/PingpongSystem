@@ -25,12 +25,8 @@ public class StudentController {
 
     @PostMapping("/create_user")
     public Result<String> createUser(@RequestBody StudentEntity studentEntity) {
-        boolean result = studentService.save(studentEntity);
-        if (result) {
-            return Result.success("保存成功"); // 返回 { "code":20000, "data":"保存成功" }
-        } else {
-            return Result.error(StatusCode.FAIL,"用户名、密码、校区、姓名和电话是必须填写的信息，其他信息可空白");
-        }
+        Result<String> result = studentService.save(studentEntity);
+        return result;
     }
 
     @PostMapping("/login")

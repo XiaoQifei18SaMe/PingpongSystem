@@ -33,22 +33,29 @@ public class StudentService {
         this.tokenService = tokenService;
     }
 
-    public boolean save(StudentEntity student) {
+    public Result<String> save(StudentEntity student) {
+        // 新增：检查用户名是否已存在
+        StudentEntity existing = studentRepository.findByUsername(student.getUsername());
+        if (existing != null) {
+            System.err.println("用户名已存在");
+            return Result.error(StatusCode.FAIL,"用户名已存在");
+        }
+
         if (student.getAge() == null) {
             student.setAge(0);
         }
         try {
             studentRepository.save(student);
-            return true;
+            return Result.success();
         } catch (OptimisticLockingFailureException e) {
             System.err.println("数据已被其他用户修改，请刷新后重试");
-            return false;
+            return Result.error(StatusCode.FAIL,"数据已被其他用户修改，请刷新后重试");
         } catch (ConstraintViolationException e) {
             System.err.println("必需字段空缺");
-            return false;
+            return Result.error(StatusCode.FAIL,"用户名、密码、校区、姓名和电话是必须填写的信息，其他信息可空白");
         } catch (DataAccessException e) {
             System.err.println("保存学生信息失败：" + e.getMessage());
-            return false;
+            return Result.error(StatusCode.FAIL,"保存学生信息失败");
         }
     }
 
@@ -92,6 +99,9 @@ public class StudentService {
             if (!student.getEmail().equals(temp.getEmail())) {
                 if (!student.getEmail().isEmpty())
                     temp.setEmail(student.getEmail());
+            }
+            if(student.getSchoolId() != temp.getId()){
+                temp.setSchoolId(student.getSchoolId());
             }
             return Result.success(temp);
         }

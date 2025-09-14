@@ -6,6 +6,7 @@ import org.example.pingpongsystem.service.AdminService;
 import org.example.pingpongsystem.service.CoachService;
 import org.example.pingpongsystem.service.SuperAdminService;
 import org.example.pingpongsystem.utility.Result;
+import org.example.pingpongsystem.utility.interfaces.InfoAns;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -55,6 +56,11 @@ public class AdminController {
             @RequestParam MultipartFile file
     ) {
         return adminService.uploadAvatar(adminId, file);
+    }
+
+    @PostMapping("/update_info")
+    public Result<AdminEntity> updateInfo(@RequestBody InfoAns info) {
+        return adminService.updateInfo(info);
     }
 
 }
