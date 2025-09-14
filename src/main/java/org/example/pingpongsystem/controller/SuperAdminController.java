@@ -34,7 +34,7 @@ public class SuperAdminController {
     }
 
     // 新增：编辑管理员
-    @PutMapping("/edit_admin")
+    @PostMapping("/edit_admin")
     public Result<AdminEntity> editAdmin(@RequestBody AdminEntity adminEntity) {
         return superAdminService.editAdmin(adminEntity);
     }
