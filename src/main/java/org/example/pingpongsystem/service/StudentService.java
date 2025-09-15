@@ -107,33 +107,78 @@ public class StudentService {
         }
     }
 
+//    @Transactional
+//    public Result<CoachTeachStudentEntity> selectCoach(Long coachId, Long studentId) {
+//        Optional<CoachEntity> tmp = coachRepository.findById(coachId);
+//        if (tmp.isPresent()) {
+//            CoachEntity coach = tmp.get();
+//            if (coachTeachStudentRepository.countByCoachId(coachId) >= 20) {
+//                return Result.error(StatusCode.FAIL, "该教练暂时没有名额");
+//            }
+//            else if (coachTeachStudentRepository.countByStudentId(studentId) >= 2) {
+//                return Result.error(StatusCode.FAIL, "学员的教练数量已达上限（2个）");
+//            }
+//            else {
+//                Optional<CoachEntity> t = coachRepository.findById(coachId);
+//                if (t.isPresent()) {
+//                    CoachTeachStudentEntity coachTeachStudentEntity = new CoachTeachStudentEntity();
+//                    coachTeachStudentEntity.setCoachId(coachId);
+//                    coachTeachStudentEntity.setStudentId(studentId);
+//                    coachTeachStudentEntity.setConfirmed(false);
+//                    coachTeachStudentRepository.save(coachTeachStudentEntity);
+//                    return Result.success(coachTeachStudentEntity);
+//                }
+//                else return Result.error(StatusCode.FAIL, "学员不存在");
+//            }
+//        }
+//        else {
+//            return Result.error(StatusCode.FAIL, "未找到该教练");
+//        }
+//    }
     @Transactional
     public Result<CoachTeachStudentEntity> selectCoach(Long coachId, Long studentId) {
-        Optional<CoachEntity> tmp = coachRepository.findById(coachId);
-        if (tmp.isPresent()) {
-            CoachEntity coach = tmp.get();
-            if (coachTeachStudentRepository.countByCoachId(coachId) >= 20) {
-                return Result.error(StatusCode.FAIL, "该教练暂时没有名额");
-            }
-            else if (coachTeachStudentRepository.countByStudentId(studentId) >= 2) {
-                return Result.error(StatusCode.FAIL, "学员的教练数量已达上限（2个）");
-            }
-            else {
-                Optional<CoachEntity> t = coachRepository.findById(coachId);
-                if (t.isPresent()) {
-                    CoachTeachStudentEntity coachTeachStudentEntity = new CoachTeachStudentEntity();
-                    coachTeachStudentEntity.setCoachId(coachId);
-                    coachTeachStudentEntity.setStudentId(studentId);
-                    coachTeachStudentEntity.setConfirmed(false);
-                    coachTeachStudentRepository.save(coachTeachStudentEntity);
-                    return Result.success(coachTeachStudentEntity);
-                }
-                else return Result.error(StatusCode.FAIL, "学员不存在");
-            }
-        }
-        else {
+        // 1. 检查教练是否存在
+        Optional<CoachEntity> coachOpt = coachRepository.findById(coachId);
+        if (!coachOpt.isPresent()) {
             return Result.error(StatusCode.FAIL, "未找到该教练");
         }
+
+        // 2. 新增：检查学员是否已申请过该教练（核心逻辑）
+        // 用 coachId + studentId 联合查询，确认是否存在关联记录
+        Optional<CoachTeachStudentEntity> existingRelation =
+                coachTeachStudentRepository.findByCoachIdAndStudentId(coachId, studentId);
+
+        if (existingRelation.isPresent()) {
+            CoachTeachStudentEntity relation = existingRelation.get();
+            // 根据 confirmed 状态返回不同提示
+            if (relation.isConfirmed()) {
+                // 已确认：说明已是该教练学生
+                return Result.error(StatusCode.FAIL, "您已成为该教练的学员，无需重复申请");
+            } else {
+                // 未确认：说明申请已提交，等待审核
+                return Result.error(StatusCode.FAIL, "您已提交该教练的申请，正在等待教练审核");
+            }
+        }
+
+        // 3. 检查教练名额是否已满（原逻辑保留）
+        if (coachTeachStudentRepository.countByCoachId(coachId) >= 20) {
+            return Result.error(StatusCode.FAIL, "该教练暂时没有名额");
+        }
+
+        // 4. 检查学员已选教练数量是否达上限（原逻辑保留）
+        // 注意：这里统计的是“所有关联记录”（包括未确认的），若需仅统计“已确认”，需修改SQL
+        if (coachTeachStudentRepository.countByStudentId(studentId) >= 2) {
+            return Result.error(StatusCode.FAIL, "学员的教练数量已达上限（2个）");
+        }
+
+        // 5. 无重复申请，创建新的关联记录（原逻辑保留）
+        CoachTeachStudentEntity coachTeachStudentEntity = new CoachTeachStudentEntity();
+        coachTeachStudentEntity.setCoachId(coachId);
+        coachTeachStudentEntity.setStudentId(studentId);
+        coachTeachStudentEntity.setConfirmed(false); // 初始状态：未确认
+        coachTeachStudentRepository.save(coachTeachStudentEntity);
+
+        return Result.success(coachTeachStudentEntity);
     }
 
     @Transactional
@@ -154,6 +199,22 @@ public class StudentService {
             return Result.success("头像上传成功");
         } catch (IOException e) {
             return Result.error(StatusCode.FAIL, "头像上传失败：" + e.getMessage());
+        }
+    }
+
+    public Result<CoachEntity> getStudentCoachDetail(Long coachId) {
+        // 1. 根据ID查询教练
+        Optional<CoachEntity> coachOpt = coachRepository.findById(coachId);
+        if (!coachOpt.isPresent()) {
+            return Result.error(StatusCode.FAIL, "未找到该教练信息");
+        }
+
+        CoachEntity coach = coachOpt.get();
+        // 2. 权限控制：学生只能查看“已审核通过”的教练（与管理员逻辑相反）
+        if (coach.isCertified()) {
+            return Result.success(coach); // 返回已审核教练的完整详情
+        } else {
+            return Result.error(StatusCode.FAIL, "该教练暂未通过审核，无法查看详情");
         }
     }
 }

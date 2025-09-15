@@ -5,10 +5,15 @@ import org.example.pingpongsystem.entity.SchoolEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface CoachTeachStudentRepository extends JpaRepository<CoachTeachStudentEntity, Long> {
     public int countByCoachId(Long coachId);
     public int countByStudentId(Long studentId);
 
     public List<CoachTeachStudentEntity> findByCoachId(Long coachId);
+
+    // 2. 新增：根据教练ID和学员ID联合查询关联记录
+    // Optional 表示“可能存在，也可能不存在”，避免返回 null
+    Optional<CoachTeachStudentEntity> findByCoachIdAndStudentId(Long coachId, Long studentId);
 }

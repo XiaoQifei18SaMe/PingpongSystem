@@ -20,6 +20,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class CoachService {
@@ -137,53 +138,40 @@ public class CoachService {
         return Result.success(coachRepository.findAllByisCertified(true));
     }
 
-    public Result<List<CoachEntity>> getSearched(String name, Boolean isMale, Integer age_low, Integer age_high, Integer level) {
+    public Result<List<CoachEntity>> getSearched(String name, Boolean isMale, Integer age_low, Integer age_high, Integer level, Long schoolId) {
         List<CoachEntity> li = coachRepository.findAllByisCertified(true);
+        // 1. 校区过滤（关键新增）
+        if (schoolId != null) {
+            li = li.stream()
+                    .filter(coach -> schoolId.equals(coach.getSchoolId()))
+                    .collect(Collectors.toList());
+        }
         if (name != null && !name.isEmpty()) {
-            List<CoachEntity> li1 = new ArrayList<>();
-            for (CoachEntity coach : li) {
-                if (coach.getName().contains(name)) {
-                    li1.add(coach);
-                }
-            }
-            li = li1;
+            li = li.stream()
+                    .filter(coach -> coach.getName().contains(name))
+                    .collect(Collectors.toList());
         }
         if (isMale != null) {
-            List<CoachEntity> li2 = new ArrayList<>();
-            for (CoachEntity coach : li) {
-                if (coach.isMale() == isMale) {
-                    li2.add(coach);
-                }
-            }
-            li = li2;
+            li = li.stream()
+                    .filter(coach -> isMale.equals(coach.isMale()))
+                    .collect(Collectors.toList());
         }
         if (age_low != null) {
-            List<CoachEntity> li3 = new ArrayList<>();
-            for (CoachEntity coach : li) {
-                if (coach.getAge() >= age_low) {
-                    li3.add(coach);
-                }
-            }
-            li = li3;
+            li = li.stream()
+                    .filter(coach -> coach.getAge() >= age_low)
+                    .collect(Collectors.toList());
         }
         if (age_high != null) {
-            List<CoachEntity> li4 = new ArrayList<>();
-            for (CoachEntity coach : li) {
-                if (coach.getAge() <= age_high) {
-                    li4.add(coach);
-                }
-            }
-            li = li4;
+            li = li.stream()
+                    .filter(coach -> coach.getAge() <= age_high)
+                    .collect(Collectors.toList());
         }
         if (level != null) {
-            List<CoachEntity> li5 = new ArrayList<>();
-            for (CoachEntity coach : li) {
-                if (coach.getLevel() == level) {
-                    li5.add(coach);
-                }
-            }
-            li = li5;
+            li = li.stream()
+                    .filter(coach -> level.equals(coach.getLevel()))
+                    .collect(Collectors.toList());
         }
+
         return Result.success(li);
     }
 
