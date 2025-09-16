@@ -1,5 +1,6 @@
 package org.example.pingpongsystem.service;
 
+import org.example.pingpongsystem.dto.SchoolDTO;
 import org.example.pingpongsystem.entity.ScheduleEntity;
 import org.example.pingpongsystem.entity.SchoolEntity;
 import org.example.pingpongsystem.repository.ScheduleRepository;
@@ -73,5 +74,31 @@ public class ScheduleService {
     // 管理员获取管辖校区
     public Result<List<SchoolEntity>> getManagedSchools(Long adminId) {
         return Result.success(schoolRepository.findByAdminId(adminId));
+    }
+
+    // 超级管理员：获取所有已有课表的校区（作为模板选择项）
+    public Result<List<SchoolDTO>> getSchoolsWithSchedule() {
+        // 查询所有校区，过滤出有课表的校区
+        List<SchoolEntity> allSchools = schoolRepository.findAll();
+        List<SchoolDTO> result = new ArrayList<>();
+        for (SchoolEntity school : allSchools) {
+            if (!scheduleRepository.findBySchoolId(school.getId()).isEmpty()) {
+                result.add(new SchoolDTO(school.getId(), school.getSchoolname(), school.getAdminId()));
+            }
+        }
+        return Result.success(result);
+    }
+
+    // 普通管理员：获取自己管辖的、已有课表的校区（作为模板选择项）
+    public Result<List<SchoolDTO>> getManagedSchoolsWithSchedule(Long adminId) {
+        // 查询该管理员管辖的校区，过滤出有课表的校区
+        List<SchoolEntity> managedSchools = schoolRepository.findByAdminId(adminId);
+        List<SchoolDTO> result = new ArrayList<>();
+        for (SchoolEntity school : managedSchools) {
+            if (!scheduleRepository.findBySchoolId(school.getId()).isEmpty()) {
+                result.add(new SchoolDTO(school.getId(), school.getSchoolname(), school.getAdminId()));
+            }
+        }
+        return Result.success(result);
     }
 }

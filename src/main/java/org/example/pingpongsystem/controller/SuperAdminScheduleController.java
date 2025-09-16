@@ -1,5 +1,6 @@
 package org.example.pingpongsystem.controller;
 
+import org.example.pingpongsystem.dto.SchoolDTO;
 import org.example.pingpongsystem.entity.ScheduleEntity;
 import org.example.pingpongsystem.entity.SchoolEntity;
 import org.example.pingpongsystem.service.ScheduleService;
@@ -48,5 +49,17 @@ public class SuperAdminScheduleController {
     @GetMapping("/school/{schoolId}")
     public Result<List<ScheduleEntity>> getSchoolSchedule(@PathVariable Long schoolId) {
         return scheduleService.getSchoolSchedule(schoolId);
+    }
+
+    // 获取已有课表的校区列表（作为现有模板选择项）
+    @GetMapping("/existing-templates")
+    public Result<List<SchoolDTO>> getExistingTemplateSchools() {
+        return scheduleService.getSchoolsWithSchedule();
+    }
+
+    // 根据校区ID获取该校区的课表（作为模板使用）
+    @GetMapping("/template/{schoolId}")
+    public Result<List<ScheduleEntity>> getScheduleTemplate(@PathVariable Long schoolId) {
+        return scheduleService.getSchoolSchedule(schoolId); // 复用已有方法
     }
 }
