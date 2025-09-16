@@ -1,5 +1,6 @@
 package org.example.pingpongsystem.controller;
 
+import org.example.pingpongsystem.dto.CoachStudentDTO;
 import org.example.pingpongsystem.entity.CoachEntity;
 import org.example.pingpongsystem.entity.CoachTeachStudentEntity;
 import org.example.pingpongsystem.service.CoachService;
@@ -35,7 +36,7 @@ public class CoachController {
     }
 
     @GetMapping("/selected_by_student")
-    public Result<List<CoachTeachStudentEntity>> selectedByStudent(@RequestParam Long coachId) {
+    public Result<List<CoachStudentDTO>> selectedByStudent(@RequestParam Long coachId) {
         return coachService.getStudentSelect(coachId);
     }
 

@@ -1,10 +1,13 @@
 package org.example.pingpongsystem.service;
 
 import jakarta.validation.ConstraintViolationException;
+import org.example.pingpongsystem.dto.CoachStudentDTO;
 import org.example.pingpongsystem.entity.CoachEntity;
 import org.example.pingpongsystem.entity.CoachTeachStudentEntity;
+import org.example.pingpongsystem.entity.StudentEntity;
 import org.example.pingpongsystem.repository.CoachRepository;
 import org.example.pingpongsystem.repository.CoachTeachStudentRepository;
+import org.example.pingpongsystem.repository.StudentRepository;
 import org.example.pingpongsystem.utility.FileUploadUtil;
 import org.example.pingpongsystem.utility.Result;
 import org.example.pingpongsystem.utility.StatusCode;
@@ -27,11 +30,13 @@ public class CoachService {
     private final CoachRepository coachRepository;
     private final CoachTeachStudentRepository coachTeachStudentRepository;
     private final TokenService tokenService;
+    private final StudentRepository studentRepository;
 
-    public CoachService(CoachRepository coachRepository, CoachTeachStudentRepository coachTeachStudentRepository, TokenService tokenService) {
+    public CoachService(CoachRepository coachRepository, CoachTeachStudentRepository coachTeachStudentRepository, TokenService tokenService, StudentRepository studentRepository) {
         this.coachRepository = coachRepository;  // 由Spring容器注入实例
         this.coachTeachStudentRepository = coachTeachStudentRepository;
         this.tokenService = tokenService;
+        this.studentRepository = studentRepository;
     }
 
     public Result<String> save(CoachEntity coach, MultipartFile file) {
@@ -175,14 +180,23 @@ public class CoachService {
         return Result.success(li);
     }
 
-    public Result<List<CoachTeachStudentEntity>> getStudentSelect(Long coachId) {
-        List<CoachTeachStudentEntity> li = coachTeachStudentRepository.findByCoachId(coachId);
-        List<CoachTeachStudentEntity> li1 = new ArrayList<>();
-        for (CoachTeachStudentEntity coachTeachStudentEntity : li) {
-            if (!coachTeachStudentEntity.isConfirmed())
-                li1.add(coachTeachStudentEntity);
+    public Result<List<CoachStudentDTO>> getStudentSelect(Long coachId) {
+        List<CoachTeachStudentEntity> relations = coachTeachStudentRepository.findByCoachId(coachId);
+        List<CoachStudentDTO> result = new ArrayList<>();
+
+        for (CoachTeachStudentEntity relation : relations) {
+            if (!relation.isConfirmed()) { // 只处理未确认的申请
+                CoachStudentDTO dto = new CoachStudentDTO();
+                dto.setRelation(relation);
+
+                // 查询学生信息
+                Optional<StudentEntity> studentOpt = studentRepository.findById(relation.getStudentId());
+                studentOpt.ifPresent(dto::setStudent); // 如果找到学生则设置
+
+                result.add(dto);
+            }
         }
-        return Result.success(li1);
+        return Result.success(result);
     }
 
     @Transactional
