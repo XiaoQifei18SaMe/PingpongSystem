@@ -25,7 +25,7 @@ public class CommonService {  // 建议放在公共服务类中
         try {
             List<SchoolEntity> schools = schoolRepository.findAll();
             List<SchoolDTO> result = schools.stream()
-                    .map(school -> new SchoolDTO(school.getId(), school.getSchoolname()))
+                    .map(school -> new SchoolDTO(school.getId(), school.getSchoolname(),school.getAdminId()))
                     .collect(Collectors.toList());
             return Result.success(result);
         } catch (DataAccessException e) {

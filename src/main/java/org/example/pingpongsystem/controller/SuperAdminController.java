@@ -110,7 +110,7 @@ public class SuperAdminController {
         private String name;
         private String location;
         private int tableCount;
-        private int adminId;
+        private Long adminId;
         private String schoolname; // 校区名称
         private String phone; // 联系电话
         private String email; // 联系邮箱
