@@ -24,9 +24,11 @@ public class PaymentRecordEntity {
 
     private String qrCodeUrl; // 二维码图片地址（线上支付用）
 
-    private String status; // 状态：PENDING/SUCCESS/FAILED
+    private String status; // 状态：PENDING/SUCCESS/FAILED/REFUNDED
 
     private LocalDateTime createTime; // 创建时间
 
     private LocalDateTime payTime; // 支付时间
+
+    private LocalDateTime refundTime; // 退款时间（新增字段）
 }

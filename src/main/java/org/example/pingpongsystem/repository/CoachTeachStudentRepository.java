@@ -16,4 +16,9 @@ public interface CoachTeachStudentRepository extends JpaRepository<CoachTeachStu
     // 2. 新增：根据教练ID和学员ID联合查询关联记录
     // Optional 表示“可能存在，也可能不存在”，避免返回 null
     Optional<CoachTeachStudentEntity> findByCoachIdAndStudentId(Long coachId, Long studentId);
+
+    List<CoachTeachStudentEntity> findByStudentIdAndIsConfirmed(Long studentId, boolean isConfirmed);
+    List<CoachTeachStudentEntity> findByCoachIdAndIsConfirmed(Long coachId,boolean isConfirmed);
+    // 新增：验证已确认的双选关系
+    boolean existsByCoachIdAndStudentIdAndIsConfirmed(Long coachId, Long studentId, boolean isConfirmed);
 }

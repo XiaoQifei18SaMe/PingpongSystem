@@ -17,7 +17,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class StudentService {
@@ -215,6 +217,28 @@ public class StudentService {
             return Result.success(coach); // 返回已审核教练的完整详情
         } else {
             return Result.error(StatusCode.FAIL, "该教练暂未通过审核，无法查看详情");
+        }
+    }
+
+    // StudentService.java
+    public Result<List<CoachEntity>> getRelatedCoaches(Long studentId) {
+        try {
+            // 1. 查询该学员已确认的教练关系
+            List<CoachTeachStudentEntity> relations = coachTeachStudentRepository
+                    .findByStudentIdAndIsConfirmed(studentId, true);
+
+            // 2. 提取教练ID列表
+            List<Long> coachIds = relations.stream()
+                    .map(CoachTeachStudentEntity::getCoachId)
+                    .collect(Collectors.toList());
+
+            // 3. 查询对应的教练信息
+            List<CoachEntity> coaches = coachRepository.findAllById(coachIds);
+
+            return Result.success(coaches);
+        } catch (DataAccessException e) {
+            System.err.println("获取相关教练失败：" + e.getMessage());
+            return Result.error(StatusCode.FAIL, "获取相关教练失败");
         }
     }
 }

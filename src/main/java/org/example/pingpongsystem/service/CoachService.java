@@ -298,4 +298,26 @@ public class CoachService {
             return Result.error(StatusCode.FAIL, "头像上传失败：" + e.getMessage());
         }
     }
+
+    // CoachService.java
+    public Result<List<StudentEntity>> getRelatedStudents(Long coachId) {
+        try {
+            // 1. 查询该教练已确认的学员关系（与学员查教练逻辑对称）
+            List<CoachTeachStudentEntity> relations = coachTeachStudentRepository
+                    .findByCoachIdAndIsConfirmed(coachId, true);
+
+            // 2. 提取学员ID列表
+            List<Long> studentIds = relations.stream()
+                    .map(CoachTeachStudentEntity::getStudentId)  // 注意这里是获取学员ID
+                    .collect(Collectors.toList());
+
+            // 3. 查询对应的学员信息
+            List<StudentEntity> students = studentRepository.findAllById(studentIds);
+
+            return Result.success(students);
+        } catch (DataAccessException e) {
+            System.err.println("获取相关学员失败：" + e.getMessage());
+            return Result.error(StatusCode.FAIL, "获取相关学员失败");
+        }
+    }
 }

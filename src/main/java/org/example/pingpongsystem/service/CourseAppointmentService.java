@@ -1,0 +1,316 @@
+package org.example.pingpongsystem.service;
+
+import lombok.RequiredArgsConstructor;
+import org.example.pingpongsystem.entity.*;
+import org.example.pingpongsystem.repository.*;
+import org.example.pingpongsystem.utility.Result;
+import org.example.pingpongsystem.utility.StatusCode;
+import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.time.temporal.TemporalAdjusters;
+import java.util.List;
+import java.util.Optional;
+
+@Service
+@RequiredArgsConstructor
+public class CourseAppointmentService {
+
+    private final CourseAppointmentRepository appointmentRepository;
+    private final CoachTeachStudentRepository relationRepository;
+    private final TableRepository tableRepository;
+    private final CancelRecordRepository cancelRecordRepository;
+    private final PaymentService paymentService;
+    private final CoachRepository coachRepository;
+    private final StudentAccountRepository studentAccountRepository;
+
+    public Result<List<CourseAppointmentEntity>> getCoachSchedule(Long coachId) {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime endOfWeek = now.plusWeeks(1);
+        List<CourseAppointmentEntity> schedule = appointmentRepository
+                .findByCoachIdAndStartTimeBetween(coachId, now, endOfWeek);
+        return Result.success(schedule);
+    }
+
+    @Transactional
+    public Result<CourseAppointmentEntity> bookCourse(
+            Long coachId, Long studentId, LocalDateTime startTime,
+            LocalDateTime endTime, Long tableId, boolean autoAssign) {
+
+        // 1. 验证双选关系
+        if (!relationRepository.existsByCoachIdAndStudentIdAndIsConfirmed(coachId, studentId, true)) {
+            return Result.error(StatusCode.FAIL, "未与该教练建立双选关系");
+        }
+
+        // 2. 调整时间有效性验证：仅要求结束时间晚于开始时间，且时长不超过合理上限（如8小时，可按需调整）
+        // 去掉1-2小时的严格限制，改为基础有效性+合理上限
+        if (endTime.isBefore(startTime)) {
+            return Result.error(StatusCode.FAIL, "结束时间不能早于开始时间");
+        }
+
+        // 3. 获取教练所在校区，用于球台筛选
+        Optional<CoachEntity> coachOpt = coachRepository.findById(coachId);
+        if (coachOpt.isEmpty()) {
+            return Result.error(StatusCode.FAIL, "教练不存在");
+        }
+        CoachEntity coach = coachOpt.get();
+        Long schoolId = coach.getSchoolId();
+        if (schoolId == null) {
+            return Result.error(StatusCode.FAIL, "教练未分配校区");
+        }
+
+        // 4. 分配球台（根据校区筛选）
+        Long finalTableId;
+        if (autoAssign) {
+            finalTableId = autoAssignTable(schoolId, startTime, endTime);
+        } else {
+            // 验证手动选择的球台是否属于该校区且可用
+            if (!isTableAvailableInSchool(tableId, schoolId, startTime, endTime)) {
+                return Result.error(StatusCode.FAIL, "所选球台不可用或不属于该教练所在校区");
+            }
+            finalTableId = tableId;
+        }
+
+        if (finalTableId == null) {
+            return Result.error(StatusCode.FAIL, "无可用球台");
+        }
+
+        // 5. 根据教练等级计算费用
+        int level = coach.getLevel();
+        double hourlyRate;
+
+        switch (level) {
+            case 10:  // 初级教练
+                hourlyRate = 80.0;
+                break;
+            case 100:  // 中级教练
+                hourlyRate = 150.0;
+                break;
+            case 1000:  // 高级教练
+                hourlyRate = 200.0;
+                break;
+            default:
+                return Result.error(StatusCode.FAIL, "教练等级设置异常");
+        }
+
+        // 计算总费用（时长小时数 × 时薪）
+        long hours = java.time.Duration.between(startTime, endTime).toHours();
+        double totalAmount = hourlyRate * hours;
+
+        // ---------------------- 新增：余额检查与扣款逻辑 ----------------------
+        // 6. 查询学生账户
+        StudentAccountEntity account = studentAccountRepository.findByStudentId(studentId)
+                .orElseThrow(() -> new RuntimeException("学生账户不存在，请先开通账户"));
+
+        // 7. 检查余额是否充足
+        if (account.getBalance() < totalAmount) {
+            return Result.error(StatusCode.FAIL,
+                    String.format("余额不足，当前余额: %.2f元，所需金额: %.2f元",
+                            account.getBalance(), totalAmount));
+        }
+
+        // 8. 扣减余额（使用乐观锁防止并发问题）
+        try {
+            account.setBalance(account.getBalance() - totalAmount);
+            studentAccountRepository.save(account); // 乐观锁会自动检查version
+        } catch (OptimisticLockingFailureException e) {
+            // 并发更新冲突时重试（可根据实际需求调整重试逻辑）
+            return Result.error(StatusCode.FAIL, "操作过于频繁，请稍后重试");
+        }
+
+        // ---------------------- 原有预约创建逻辑调整 ----------------------
+        // 9. 创建预约记录（状态改为等待确认）
+        CourseAppointmentEntity appointment = new CourseAppointmentEntity();
+        appointment.setCoachId(coachId);
+        appointment.setStudentId(studentId);
+        appointment.setStartTime(startTime);
+        appointment.setEndTime(endTime);
+        appointment.setTableId(finalTableId);
+        appointment.setStatus(CourseAppointmentEntity.AppointmentStatus.PENDING_CONFIRM); // 等待教练确认
+        appointment.setAmount(totalAmount);
+        appointment.setSchoolId(schoolId);
+        appointment.setPaymentRecordId(null); // 可扩展：关联支付记录ID
+
+        appointmentRepository.save(appointment);
+        return Result.success(appointment);
+    }
+
+    @Transactional
+    public Result<String> handleCoachConfirmation(Long appointmentId, boolean accept) {
+        Optional<CourseAppointmentEntity> appointmentOpt = appointmentRepository.findById(appointmentId);
+        if (appointmentOpt.isEmpty()) {
+            return Result.error(StatusCode.FAIL, "预约记录不存在");
+        }
+
+        CourseAppointmentEntity appointment = appointmentOpt.get();
+        if (accept) {
+            appointment.setStatus(CourseAppointmentEntity.AppointmentStatus.CONFIRMED);
+            appointmentRepository.save(appointment);
+            return Result.success("已确认预约，请通知学员支付");
+        } else {
+            appointment.setStatus(CourseAppointmentEntity.AppointmentStatus.REJECTED);
+            appointmentRepository.save(appointment);
+            return Result.success("已拒绝预约");
+        }
+    }
+
+    @Transactional
+    public Result<String> requestCancel(Long appointmentId, Long userId, String userType) {
+        // 1. 验证预约存在
+        Optional<CourseAppointmentEntity> appointmentOpt = appointmentRepository.findById(appointmentId);
+        if (appointmentOpt.isEmpty()) {
+            return Result.error(StatusCode.FAIL, "预约记录不存在");
+        }
+
+        // 2. 验证取消时间（需提前24小时）
+        CourseAppointmentEntity appointment = appointmentOpt.get();
+        if (LocalDateTime.now().plusHours(24).isAfter(appointment.getStartTime())) {
+            return Result.error(StatusCode.FAIL, "需提前24小时取消预约");
+        }
+
+        // 3. 验证本月取消次数（最多3次）
+        LocalDateTime monthStart = LocalDateTime.now().with(TemporalAdjusters.firstDayOfMonth());
+        LocalDateTime monthEnd = LocalDateTime.now().with(TemporalAdjusters.lastDayOfMonth());
+        long cancelCount = cancelRecordRepository.countByUserIdAndUserTypeAndCreateTimeBetween(
+                userId, userType, monthStart, monthEnd);
+
+        if (cancelCount >= 3) {
+            return Result.error(StatusCode.FAIL, "本月取消次数已达上限（3次）");
+        }
+
+        // 4. 创建取消申请
+        CancelRecordEntity cancelRecord = new CancelRecordEntity();
+        cancelRecord.setUserId(userId);
+        cancelRecord.setUserType(userType);
+        cancelRecord.setAppointmentId(appointmentId);
+        cancelRecord.setCreateTime(LocalDateTime.now());
+        cancelRecord.setStatus(CancelRecordEntity.CancelStatus.PENDING);
+        cancelRecordRepository.save(cancelRecord);
+
+        appointment.setStatus(CourseAppointmentEntity.AppointmentStatus.CANCEL_REQUESTED);
+        appointmentRepository.save(appointment);
+
+        return Result.success("取消申请已提交，剩余取消次数：" + (3 - cancelCount - 1));
+    }
+
+    @Transactional
+    public Result<String> handleCancelRequest(Long cancelRecordId, boolean approve) {
+        Optional<CancelRecordEntity> recordOpt = cancelRecordRepository.findById(cancelRecordId);
+        if (recordOpt.isEmpty()) {
+            return Result.error(StatusCode.FAIL, "取消记录不存在");
+        }
+
+        CancelRecordEntity record = recordOpt.get();
+        Optional<CourseAppointmentEntity> appointmentOpt = appointmentRepository.findById(record.getAppointmentId());
+        if (appointmentOpt.isEmpty()) {
+            return Result.error(StatusCode.FAIL, "预约记录不存在");
+        }
+
+        CourseAppointmentEntity appointment = appointmentOpt.get();
+        if (approve) {
+            // 1. 更新状态
+            record.setStatus(CancelRecordEntity.CancelStatus.APPROVED);
+            appointment.setStatus(CourseAppointmentEntity.AppointmentStatus.CANCELLED);
+
+            // 2. 发起退款（如果已支付）
+            if (appointment.getPaymentRecordId() != null) {
+                paymentService.refund(appointment.getPaymentRecordId());
+            }
+        } else {
+            record.setStatus(CancelRecordEntity.CancelStatus.REJECTED);
+            appointment.setStatus(CourseAppointmentEntity.AppointmentStatus.CONFIRMED);
+        }
+
+        cancelRecordRepository.save(record);
+        appointmentRepository.save(appointment);
+        return Result.success(approve ? "已确认取消，已发起退款" : "已拒绝取消申请");
+    }
+
+    // 自动分配球台（根据校区筛选并检查时间段冲突）
+    private Long autoAssignTable(Long schoolId, LocalDateTime startTime, LocalDateTime endTime) {
+        // 根据校区查询所有球台
+        List<TableEntity> tables = tableRepository.findAllBySchoolId(schoolId);
+
+        // 查找指定时间段内未被占用的球台
+        for (TableEntity table : tables) {
+            List<CourseAppointmentEntity> conflicts = appointmentRepository
+                    .findByTableIdAndStartTimeLessThanAndEndTimeGreaterThan(
+                            table.getId(), endTime, startTime);
+            if (conflicts.isEmpty()) {
+                return table.getId();
+            }
+        }
+        return null;
+    }
+
+    // 验证球台是否属于该校区且在指定时间段可用
+    private boolean isTableAvailableInSchool(Long tableId, Long schoolId, LocalDateTime startTime, LocalDateTime endTime) {
+        Optional<TableEntity> tableOpt = tableRepository.findById(tableId);
+        if (tableOpt.isEmpty()) {
+            return false;
+        }
+
+        TableEntity table = tableOpt.get();
+        // 检查球台是否属于该校区
+        if (!table.getSchoolId().equals(schoolId)) {
+            return false;
+        }
+
+        // 检查球台在指定时间段是否有冲突预约
+        List<CourseAppointmentEntity> conflicts = appointmentRepository
+                .findByTableIdAndStartTimeLessThanAndEndTimeGreaterThan(
+                        tableId, endTime, startTime);
+        return conflicts.isEmpty();
+    }
+
+    public Result<List<CourseAppointmentEntity>> getStudentAppointments(Long studentId) {
+        // 1. 校验参数
+        if (studentId == null) {
+            return Result.error(StatusCode.FAIL, "学生ID不能为空");
+        }
+
+        // 2. 关联查询预约列表（含教练姓名）
+        List<CourseAppointmentEntity> appointmentList = appointmentRepository.findByStudentId(studentId);
+
+        // 3. 返回结果
+        return Result.success(appointmentList);
+    }
+
+    public Result<List<CourseAppointmentEntity>> getCoachAppointments(Long coachId){
+        // 1. 校验参数
+        if (coachId == null) {
+            return Result.error(StatusCode.FAIL, "学生ID不能为空");
+        }
+        // 2. 关联查询预约列表（含教练姓名）
+        List<CourseAppointmentEntity> appointmentList = appointmentRepository.findByCoachId(coachId);
+        // 3. 返回结果
+        return Result.success(appointmentList);
+    }
+
+    public Result<List<CancelRecordEntity>> getPendingCancelRecords(Long userId, String userType) {
+        try {
+            List<CancelRecordEntity> pendingRecords;
+
+            // 根据用户类型和ID查询，同时过滤状态为PENDING的记录
+            if ("STUDENT".equals(userType)) {
+                // 教练视角：查询学生发起的待处理取消申请
+                pendingRecords = cancelRecordRepository
+                        .findByUserIdAndUserTypeAndStatus(userId, userType, CancelRecordEntity.CancelStatus.PENDING);
+            } else if ("COACH".equals(userType)) {
+                // 学生视角：查询教练发起的待处理取消申请
+                pendingRecords = cancelRecordRepository
+                        .findByUserIdAndUserTypeAndStatus(userId, userType, CancelRecordEntity.CancelStatus.PENDING);
+            } else {
+                return Result.error(StatusCode.FAIL, "无效的用户类型（仅支持STUDENT/COACH）");
+            }
+
+            return Result.success(pendingRecords);
+        } catch (Exception e) {
+            // 日志记录异常（建议使用日志框架，如SLF4J）
+            System.err.println("查询待处理取消申请失败：" + e.getMessage());
+            return Result.error(StatusCode.FAIL, "获取待处理取消申请失败");
+        }
+    }
+}

@@ -3,6 +3,7 @@ package org.example.pingpongsystem.controller;
 import org.example.pingpongsystem.dto.CoachStudentDTO;
 import org.example.pingpongsystem.entity.CoachEntity;
 import org.example.pingpongsystem.entity.CoachTeachStudentEntity;
+import org.example.pingpongsystem.entity.StudentEntity;
 import org.example.pingpongsystem.service.CoachService;
 import org.example.pingpongsystem.utility.Result;
 import org.springframework.web.bind.annotation.*;
@@ -52,4 +53,10 @@ public class CoachController {
     ) {
         return coachService.uploadAvatar(coachId, file);
     }
+
+    @GetMapping("/get_related_students")
+    public Result<List<StudentEntity>> getRelatedStudents(@RequestParam Long coachId) {
+        return coachService.getRelatedStudents(coachId);
+    }
+
 }

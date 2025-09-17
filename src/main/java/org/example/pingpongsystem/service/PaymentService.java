@@ -97,4 +97,28 @@ public class PaymentService {
         paymentRecordRepository.save(record);
         return Result.success("已取消支付");
     }
+
+    // 新增退款方法
+    @Transactional
+    public Result<String> refund(Long recordId) {
+        PaymentRecordEntity record = paymentRecordRepository.findById(recordId)
+                .orElseThrow(() -> new RuntimeException("支付记录不存在"));
+
+        if (!"SUCCESS".equals(record.getStatus())) {
+            return Result.error(StatusCode.FAIL, "只有已支付的订单可以退款");
+        }
+
+        // 更新支付记录状态
+        record.setStatus("REFUNDED");
+        record.setRefundTime(LocalDateTime.now());
+        paymentRecordRepository.save(record);
+
+        // 退还金额到学员账户
+        StudentAccountEntity account = accountRepository.findByStudentId(record.getStudentId())
+                .orElseThrow(() -> new RuntimeException("学员账户不存在"));
+        account.setBalance(account.getBalance() - record.getAmount());  // 减去已支付金额（退款）
+        accountRepository.save(account);
+
+        return Result.success("退款成功");
+    }
 }
