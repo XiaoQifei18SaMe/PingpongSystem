@@ -170,20 +170,33 @@ public class CourseAppointmentService {
             return Result.error(StatusCode.FAIL, "需提前24小时取消预约");
         }
 
-        // 3. 验证本月取消次数（最多3次）
+        // 3. 验证本月取消次数（最多3次，只统计PENDING和APPROVED状态）
         LocalDateTime monthStart = LocalDateTime.now().with(TemporalAdjusters.firstDayOfMonth());
         LocalDateTime monthEnd = LocalDateTime.now().with(TemporalAdjusters.lastDayOfMonth());
-        long cancelCount = cancelRecordRepository.countByUserIdAndUserTypeAndCreateTimeBetween(
-                userId, userType, monthStart, monthEnd);
+        List<CancelRecordEntity.CancelStatus> validStatuses = List.of(
+                CancelRecordEntity.CancelStatus.PENDING,
+                CancelRecordEntity.CancelStatus.APPROVED
+        );
+
+        long cancelCount = 0;
+        // 根据发起人类型统计取消次数
+        if ("STUDENT".equals(userType)) {
+            cancelCount = cancelRecordRepository.countByStudentIdAndUserTypeAndStatusInAndCreateTimeBetween(
+                    userId, userType, validStatuses, monthStart, monthEnd);
+        } else if ("COACH".equals(userType)) {
+            cancelCount = cancelRecordRepository.countByCoachIdAndUserTypeAndStatusInAndCreateTimeBetween(
+                    userId, userType, validStatuses, monthStart, monthEnd);
+        }
 
         if (cancelCount >= 3) {
             return Result.error(StatusCode.FAIL, "本月取消次数已达上限（3次）");
         }
 
-        // 4. 创建取消申请
+        // 4. 创建取消申请（设置双方ID）
         CancelRecordEntity cancelRecord = new CancelRecordEntity();
-        cancelRecord.setUserId(userId);
-        cancelRecord.setUserType(userType);
+        cancelRecord.setStudentId(appointment.getStudentId());
+        cancelRecord.setCoachId(appointment.getCoachId());
+        cancelRecord.setUserType(userType);  // 记录发起人类型
         cancelRecord.setAppointmentId(appointmentId);
         cancelRecord.setCreateTime(LocalDateTime.now());
         cancelRecord.setStatus(CancelRecordEntity.CancelStatus.PENDING);
@@ -290,27 +303,20 @@ public class CourseAppointmentService {
     }
 
     public Result<List<CancelRecordEntity>> getPendingCancelRecords(Long userId, String userType) {
-        try {
-            List<CancelRecordEntity> pendingRecords;
-
-            // 根据用户类型和ID查询，同时过滤状态为PENDING的记录
-            if ("STUDENT".equals(userType)) {
-                // 教练视角：查询学生发起的待处理取消申请
-                pendingRecords = cancelRecordRepository
-                        .findByUserIdAndUserTypeAndStatus(userId, userType, CancelRecordEntity.CancelStatus.PENDING);
-            } else if ("COACH".equals(userType)) {
-                // 学生视角：查询教练发起的待处理取消申请
-                pendingRecords = cancelRecordRepository
-                        .findByUserIdAndUserTypeAndStatus(userId, userType, CancelRecordEntity.CancelStatus.PENDING);
-            } else {
-                return Result.error(StatusCode.FAIL, "无效的用户类型（仅支持STUDENT/COACH）");
-            }
-
-            return Result.success(pendingRecords);
-        } catch (Exception e) {
-            // 日志记录异常（建议使用日志框架，如SLF4J）
-            System.err.println("查询待处理取消申请失败：" + e.getMessage());
-            return Result.error(StatusCode.FAIL, "获取待处理取消申请失败");
+        // 获取待处理的取消申请：自己是应答人，对方是发起人，状态为PENDING
+        // userType 是发起人, userId 是应答人
+        List<CancelRecordEntity> records;
+        if ("COACH".equals(userType)) {
+            // 学生查询：对方是教练发起的，状态为待处理
+            records = cancelRecordRepository.findByStudentIdAndUserTypeAndStatus(
+                    userId, "COACH", CancelRecordEntity.CancelStatus.PENDING);
+        } else if ("STUDENT".equals(userType)) {
+            // 教练查询：对方是学生发起的，状态为待处理
+            records = cancelRecordRepository.findByCoachIdAndUserTypeAndStatus(
+                    userId, "STUDENT", CancelRecordEntity.CancelStatus.PENDING);
+        } else {
+            return Result.error(StatusCode.FAIL, "无效的用户类型");
         }
+        return Result.success(records);
     }
 }

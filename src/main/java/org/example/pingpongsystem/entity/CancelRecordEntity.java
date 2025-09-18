@@ -13,10 +13,13 @@ public class CancelRecordEntity {
     private Long id;
 
     @Column(nullable = false)
-    private Long userId;  // 操作用户ID（学员/教练）
+    private Long studentId;  // 学员ID（不能为空）
 
     @Column(nullable = false)
-    private String userType;  // 用户类型（STUDENT/COACH）
+    private Long coachId;  // 教练ID（不能为空）
+
+    @Column(nullable = false)
+    private String userType;  // 用户类型（STUDENT/COACH）- 标识发起人
 
     @Column(nullable = false)
     private Long appointmentId;  // 关联预约ID

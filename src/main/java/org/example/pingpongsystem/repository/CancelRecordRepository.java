@@ -9,17 +9,22 @@ import java.util.List;
 
 @Repository
 public interface CancelRecordRepository extends JpaRepository<CancelRecordEntity, Long> {
-    // 查询用户当月取消次数
-    long countByUserIdAndUserTypeAndCreateTimeBetween(
-            Long userId, String userType, LocalDateTime monthStart, LocalDateTime monthEnd);
+    // 查询用户当月取消次数（只统计发起人的有效取消）
+    long countByStudentIdAndUserTypeAndStatusInAndCreateTimeBetween(
+            Long studentId, String userType, List<CancelRecordEntity.CancelStatus> statuses,
+            LocalDateTime monthStart, LocalDateTime monthEnd);
+
+    long countByCoachIdAndUserTypeAndStatusInAndCreateTimeBetween(
+            Long coachId, String userType, List<CancelRecordEntity.CancelStatus> statuses,
+            LocalDateTime monthStart, LocalDateTime monthEnd);
 
     // 查询预约相关的取消记录
     CancelRecordEntity findByAppointmentId(Long appointmentId);
 
-    // 根据用户ID、用户类型、状态查询取消申请记录
-    List<CancelRecordEntity> findByUserIdAndUserTypeAndStatus(
-            Long userId,
-            String userType,
-            CancelRecordEntity.CancelStatus status
-    );
+    // 获取待处理的取消申请（自己是应答人，对方是发起人，状态为待处理）
+    List<CancelRecordEntity> findByCoachIdAndUserTypeAndStatus(
+            Long coachId, String userType, CancelRecordEntity.CancelStatus status);
+
+    List<CancelRecordEntity> findByStudentIdAndUserTypeAndStatus(
+            Long studentId, String userType, CancelRecordEntity.CancelStatus status);
 }
