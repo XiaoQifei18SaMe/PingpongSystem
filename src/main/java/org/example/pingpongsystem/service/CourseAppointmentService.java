@@ -25,6 +25,7 @@ public class CourseAppointmentService {
     private final PaymentService paymentService;
     private final CoachRepository coachRepository;
     private final StudentAccountRepository studentAccountRepository;
+    private final PaymentRecordRepository paymentRecordRepository;
 
     public Result<List<CourseAppointmentEntity>> getCoachSchedule(Long coachId) {
         LocalDateTime now = LocalDateTime.now();
@@ -120,6 +121,16 @@ public class CourseAppointmentService {
                             account.getBalance(), totalAmount));
         }
 
+        // ---------------------- 新增：创建支付记录（账户余额支付） ----------------------
+        PaymentRecordEntity paymentRecord = new PaymentRecordEntity();
+        paymentRecord.setStudentId(studentId);
+        paymentRecord.setAmount(totalAmount);
+        paymentRecord.setPaymentMethod("ACCOUNT"); // 标记为账户余额支付
+        paymentRecord.setStatus("SUCCESS"); // 此时已扣减余额，状态为成功
+        paymentRecord.setCreateTime(LocalDateTime.now());
+        paymentRecord.setPayTime(LocalDateTime.now()); // 支付时间与创建时间一致
+        PaymentRecordEntity savedRecord = paymentRecordRepository.save(paymentRecord); // 保存支付记录
+
         // 8. 扣减余额（使用乐观锁防止并发问题）
         try {
             account.setBalance(account.getBalance() - totalAmount);
@@ -140,7 +151,7 @@ public class CourseAppointmentService {
         appointment.setStatus(CourseAppointmentEntity.AppointmentStatus.PENDING_CONFIRM); // 等待教练确认
         appointment.setAmount(totalAmount);
         appointment.setSchoolId(schoolId);
-        appointment.setPaymentRecordId(null); // 可扩展：关联支付记录ID
+        appointment.setPaymentRecordId(savedRecord.getId()); // 关联支付记录ID
 
         appointmentRepository.save(appointment);
         return Result.success(appointment);
@@ -157,11 +168,19 @@ public class CourseAppointmentService {
         if (accept) {
             appointment.setStatus(CourseAppointmentEntity.AppointmentStatus.CONFIRMED);
             appointmentRepository.save(appointment);
-            return Result.success("已确认预约，请通知学员支付");
+            return Result.success("已确认预约");
         } else {
+            // 拒绝预约时，触发退款
+            if (appointment.getPaymentRecordId() != null) {
+                // 调用PaymentService的退款方法
+                Result<String> refundResult = paymentService.refund(appointment.getPaymentRecordId());
+                if (!refundResult.isSuccess()) {
+                    return refundResult; // 退款失败时返回错误
+                }
+            }
             appointment.setStatus(CourseAppointmentEntity.AppointmentStatus.REJECTED);
             appointmentRepository.save(appointment);
-            return Result.success("已拒绝预约");
+            return Result.success("已拒绝预约，已自动退款");
         }
     }
 
@@ -227,27 +246,46 @@ public class CourseAppointmentService {
         CancelRecordEntity record = recordOpt.get();
         Optional<CourseAppointmentEntity> appointmentOpt = appointmentRepository.findById(record.getAppointmentId());
         if (appointmentOpt.isEmpty()) {
-            return Result.error(StatusCode.FAIL, "预约记录不存在");
+            return Result.error(StatusCode.FAIL, "关联的预约记录不存在");
         }
-
         CourseAppointmentEntity appointment = appointmentOpt.get();
+
         if (approve) {
-            // 1. 更新状态
+            // 1. 批准取消：更新取消记录状态为已批准
             record.setStatus(CancelRecordEntity.CancelStatus.APPROVED);
+            cancelRecordRepository.save(record);
+
+            // 2. 更新预约状态为“已取消”
             appointment.setStatus(CourseAppointmentEntity.AppointmentStatus.CANCELLED);
+            appointmentRepository.save(appointment);
 
-            // 2. 发起退款（如果已支付）
-            if (appointment.getPaymentRecordId() != null) {
-                paymentService.refund(appointment.getPaymentRecordId());
+            // 3. 核心：触发退款（若存在支付记录）
+            Long paymentRecordId = appointment.getPaymentRecordId();
+            if (paymentRecordId != null) {
+                Result<String> refundResult = paymentService.refund(paymentRecordId);
+                if (!refundResult.isSuccess()) {
+                    // 退款失败时，事务会自动回滚（取消状态和预约状态不会保存）
+                    return Result.error(StatusCode.FAIL, "取消申请批准成功，但退款失败：" + refundResult.getMessage());
+                }
+            } else {
+                // 理论上不会走到这里（预约时已生成支付记录），但做容错处理
+                return Result.error(StatusCode.FAIL, "取消成功，但未找到对应的支付记录，无法退款");
             }
-        } else {
-            record.setStatus(CancelRecordEntity.CancelStatus.REJECTED);
-            appointment.setStatus(CourseAppointmentEntity.AppointmentStatus.CONFIRMED);
-        }
 
-        cancelRecordRepository.save(record);
-        appointmentRepository.save(appointment);
-        return Result.success(approve ? "已确认取消，已发起退款" : "已拒绝取消申请");
+            return Result.success("已批准取消申请，款项已退还");
+        } else {
+            // 拒绝取消：更新取消记录状态为已拒绝，预约状态恢复为原状态（如CONFIRMED）
+            record.setStatus(CancelRecordEntity.CancelStatus.REJECTED);
+            cancelRecordRepository.save(record);
+
+            // 恢复预约状态（根据原状态判断，若原状态是PENDING_CONFIRM则保持，若是CONFIRMED则恢复）
+            if (appointment.getStatus() == CourseAppointmentEntity.AppointmentStatus.CANCEL_REQUESTED) {
+                appointment.setStatus(CourseAppointmentEntity.AppointmentStatus.CONFIRMED);
+                appointmentRepository.save(appointment);
+            }
+
+            return Result.success("已拒绝取消申请");
+        }
     }
 
     // 自动分配球台（根据校区筛选并检查时间段冲突）

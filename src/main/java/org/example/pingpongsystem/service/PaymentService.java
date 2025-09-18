@@ -116,7 +116,8 @@ public class PaymentService {
         // 退还金额到学员账户
         StudentAccountEntity account = accountRepository.findByStudentId(record.getStudentId())
                 .orElseThrow(() -> new RuntimeException("学员账户不存在"));
-        account.setBalance(account.getBalance() - record.getAmount());  // 减去已支付金额（退款）
+        // 退还金额到学员账户
+        account.setBalance(account.getBalance() + record.getAmount());  // 加上已支付金额（退款）
         accountRepository.save(account);
 
         return Result.success("退款成功");
