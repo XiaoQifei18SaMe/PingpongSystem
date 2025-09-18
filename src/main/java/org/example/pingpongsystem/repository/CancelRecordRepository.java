@@ -9,11 +9,11 @@ import java.util.List;
 
 @Repository
 public interface CancelRecordRepository extends JpaRepository<CancelRecordEntity, Long> {
-    // 查询用户当月取消次数（只统计发起人的有效取消）
+    // 统计学生本月的有效取消次数
     long countByStudentIdAndUserTypeAndStatusInAndCreateTimeBetween(
             Long studentId, String userType, List<CancelRecordEntity.CancelStatus> statuses,
             LocalDateTime monthStart, LocalDateTime monthEnd);
-
+    // 统计教练本月的有效取消次数
     long countByCoachIdAndUserTypeAndStatusInAndCreateTimeBetween(
             Long coachId, String userType, List<CancelRecordEntity.CancelStatus> statuses,
             LocalDateTime monthStart, LocalDateTime monthEnd);

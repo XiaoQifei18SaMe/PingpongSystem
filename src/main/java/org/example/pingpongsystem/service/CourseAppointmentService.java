@@ -29,8 +29,15 @@ public class CourseAppointmentService {
     public Result<List<CourseAppointmentEntity>> getCoachSchedule(Long coachId) {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime endOfWeek = now.plusWeeks(1);
+        // 定义需要排除的状态列表：已取消和已拒绝
+        List<CourseAppointmentEntity.AppointmentStatus> excludedStatuses = List.of(
+                CourseAppointmentEntity.AppointmentStatus.CANCELLED,
+                CourseAppointmentEntity.AppointmentStatus.REJECTED
+        );
+        // 调用新增的查询方法，排除指定状态
         List<CourseAppointmentEntity> schedule = appointmentRepository
-                .findByCoachIdAndStartTimeBetween(coachId, now, endOfWeek);
+                .findByCoachIdAndStartTimeBetweenAndStatusNotIn(
+                        coachId, now, endOfWeek, excludedStatuses);
         return Result.success(schedule);
     }
 
@@ -101,9 +108,11 @@ public class CourseAppointmentService {
 
         // ---------------------- 新增：余额检查与扣款逻辑 ----------------------
         // 6. 查询学生账户
-        StudentAccountEntity account = studentAccountRepository.findByStudentId(studentId)
-                .orElseThrow(() -> new RuntimeException("学生账户不存在，请先开通账户"));
-
+        Optional<StudentAccountEntity> accountOpt = studentAccountRepository.findByStudentId(studentId);
+        if (accountOpt.isEmpty()) {
+            return Result.error(StatusCode.FAIL, "学生账户不存在，请先开通账户");
+        }
+        StudentAccountEntity account = accountOpt.get();
         // 7. 检查余额是否充足
         if (account.getBalance() < totalAmount) {
             return Result.error(StatusCode.FAIL,
@@ -318,5 +327,29 @@ public class CourseAppointmentService {
             return Result.error(StatusCode.FAIL, "无效的用户类型");
         }
         return Result.success(records);
+    }
+
+    // 获取本月剩余取消次数
+    public Result<Integer> getRemainingCancelCount(Long userId, String userType) {
+        LocalDateTime monthStart = LocalDateTime.now().with(TemporalAdjusters.firstDayOfMonth());
+        LocalDateTime monthEnd = LocalDateTime.now().with(TemporalAdjusters.lastDayOfMonth());
+        List<CancelRecordEntity.CancelStatus> validStatuses = List.of(
+                CancelRecordEntity.CancelStatus.PENDING,
+                CancelRecordEntity.CancelStatus.APPROVED
+        );
+
+        long cancelCount = 0;
+        if ("STUDENT".equals(userType)) {
+            cancelCount = cancelRecordRepository.countByStudentIdAndUserTypeAndStatusInAndCreateTimeBetween(
+                    userId, userType, validStatuses, monthStart, monthEnd);
+        } else if ("COACH".equals(userType)) {
+            cancelCount = cancelRecordRepository.countByCoachIdAndUserTypeAndStatusInAndCreateTimeBetween(
+                    userId, userType, validStatuses, monthStart, monthEnd);
+        } else {
+            return Result.error(StatusCode.FAIL, "无效的用户类型");
+        }
+
+        int remaining = 3 - (int) cancelCount;
+        return Result.success(Math.max(remaining, 0)); // 确保不返回负数
     }
 }

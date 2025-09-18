@@ -78,5 +78,11 @@ public class CourseAppointmentController {
         return appointmentService.getPendingCancelRecords(userId, userType);
     }
 
-
+    // 获取本月剩余取消次数
+    @GetMapping("/remaining_cancel_count")
+    public Result<Integer> getRemainingCancelCount(
+            @RequestParam Long userId,
+            @RequestParam String userType) {  // STUDENT/COACH
+        return appointmentService.getRemainingCancelCount(userId, userType);
+    }
 }
