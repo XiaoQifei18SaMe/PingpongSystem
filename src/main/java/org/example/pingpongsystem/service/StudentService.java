@@ -3,9 +3,11 @@ package org.example.pingpongsystem.service;
 import jakarta.validation.ConstraintViolationException;
 import org.example.pingpongsystem.entity.CoachEntity;
 import org.example.pingpongsystem.entity.CoachTeachStudentEntity;
+import org.example.pingpongsystem.entity.StudentAccountEntity;
 import org.example.pingpongsystem.entity.StudentEntity;
 import org.example.pingpongsystem.repository.CoachRepository;
 import org.example.pingpongsystem.repository.CoachTeachStudentRepository;
+import org.example.pingpongsystem.repository.StudentAccountRepository;
 import org.example.pingpongsystem.repository.StudentRepository;
 import org.example.pingpongsystem.utility.FileUploadUtil;
 import org.example.pingpongsystem.utility.Result;
@@ -27,12 +29,14 @@ public class StudentService {
     private final CoachTeachStudentRepository coachTeachStudentRepository;
     private final CoachRepository coachRepository;
     private final TokenService tokenService;
+    private final StudentAccountRepository studentAccountRepository;
 
-    public StudentService(StudentRepository studentRepository, CoachTeachStudentRepository coachTeachStudentRepository, CoachRepository coachRepository, TokenService tokenService) {
+    public StudentService(StudentRepository studentRepository, CoachTeachStudentRepository coachTeachStudentRepository, CoachRepository coachRepository, TokenService tokenService,StudentAccountRepository studentAccountRepository) {
         this.studentRepository = studentRepository;  // 由Spring容器注入实例
         this.coachTeachStudentRepository = coachTeachStudentRepository;
         this.coachRepository = coachRepository;
         this.tokenService = tokenService;
+        this.studentAccountRepository = studentAccountRepository;
     }
 
     public Result<String> save(StudentEntity student) {
@@ -47,7 +51,13 @@ public class StudentService {
             student.setAge(0);
         }
         try {
-            studentRepository.save(student);
+            // 保存学生信息（会自动生成学生ID）
+            StudentEntity savedStudent = studentRepository.save(student);
+            // 新增：创建学生账户
+            StudentAccountEntity account = new StudentAccountEntity();
+            account.setStudentId(savedStudent.getId());  // 关联学生ID
+            account.setBalance(0.0);  // 初始余额为0
+            studentAccountRepository.save(account);  // 保存账户
             return Result.success();
         } catch (OptimisticLockingFailureException e) {
             System.err.println("数据已被其他用户修改，请刷新后重试");

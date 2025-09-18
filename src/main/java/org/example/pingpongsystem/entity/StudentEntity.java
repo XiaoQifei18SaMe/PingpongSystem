@@ -1,5 +1,6 @@
 package org.example.pingpongsystem.entity;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -24,6 +25,11 @@ public class StudentEntity {
     @Column(nullable = false)
     private String name;
 
+    // Lombok会自动生成：
+    // getter: isMale()
+    // setter: setMale(boolean male)
+    // 显式指定JSON中的键为"isMale"
+    @JsonProperty("isMale")
     private boolean isMale;
 
     private Integer age;

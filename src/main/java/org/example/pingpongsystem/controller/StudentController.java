@@ -25,6 +25,7 @@ public class StudentController {
 
     @PostMapping("/create_user")
     public Result<String> createUser(@RequestBody StudentEntity studentEntity) {
+        System.out.println("学生性别 " + studentEntity.isMale());
         Result<String> result = studentService.save(studentEntity);
         return result;
     }
