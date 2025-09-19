@@ -22,13 +22,32 @@ public class CourseEvaluationEntity {
     @Column(nullable = false)
     private EvaluatorType evaluatorType;  // 评价人类型
 
+    @Column(nullable = false)
     private String content;  // 评价内容
 
+    @Column(nullable = false)
     private LocalDateTime createTime;  // 评价创建时间
+
+    @Column(nullable = false)
+    private LocalDateTime updateTime;  // 评价更新时间（新增）
 
     // 评价人类型枚举
     public enum EvaluatorType {
         STUDENT,  // 学员
         COACH     // 教练
+    }
+
+    // 新增：创建时自动设置创建/更新时间
+    @PrePersist
+    public void prePersist() {
+        LocalDateTime now = LocalDateTime.now();
+        this.createTime = now;
+        this.updateTime = now;
+    }
+
+    // 新增：更新时自动更新updateTime
+    @PreUpdate
+    public void preUpdate() {
+        this.updateTime = LocalDateTime.now();
     }
 }

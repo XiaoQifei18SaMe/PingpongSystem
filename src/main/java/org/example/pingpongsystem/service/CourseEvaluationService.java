@@ -25,39 +25,28 @@ public class CourseEvaluationService {
     private final NotificationService notificationService;
 
     /**
-     * 定时任务：检查并处理已结束的课程
-     * 每小时执行一次
+     * 定时任务：处理已结束课程（原逻辑不变）
      */
-    //@Scheduled(cron = "0 0 * * * ?")
-    /**
-     * 定时任务：检查并处理已结束的课程
-     * 每10分钟执行一次
-     */
-//    @Scheduled(cron = "0 */10 * * * ?")  // 修改cron表达式为每10分钟
-    @Scheduled(cron = "0 */1 * * * ?")  // 每1分钟执行一次
+    @Scheduled(cron = "0 */1 * * * ?")  // 每1分钟执行一次（测试用，可调整为每小时）
     @Transactional
     public void processCompletedCourses() {
         LocalDateTime now = LocalDateTime.now();
-        // 查询所有已确认但未完成，且结束时间已过的课程
         List<CourseAppointmentEntity> completedCourses = appointmentRepository.findAll().stream()
                 .filter(appointment -> appointment.getStatus() == CourseAppointmentEntity.AppointmentStatus.CONFIRMED
                         && appointment.getEndTime().isBefore(now))
                 .toList();
 
-        // 更新课程状态为已完成并发送评价通知
         for (CourseAppointmentEntity course : completedCourses) {
             course.setStatus(CourseAppointmentEntity.AppointmentStatus.COMPLETED);
             appointmentRepository.save(course);
 
-            // 发送学员评价通知
+            // 发送评价通知（原逻辑不变）
             notificationService.createNotification(
                     course.getStudentId(),
                     NotificationEntity.UserType.STUDENT,
                     course.getId(),
                     "您有一节课程已完成，请对教练进行评价"
             );
-
-            // 发送教练评价通知
             notificationService.createNotification(
                     course.getCoachId(),
                     NotificationEntity.UserType.COACH,
@@ -67,62 +56,55 @@ public class CourseEvaluationService {
         }
     }
 
-
     /**
-     * 提交评价
+     * 新增评价（原submitEvaluation重命名）
      */
     @Transactional
-    public Result<CourseEvaluationEntity> submitEvaluation(
+    public Result<CourseEvaluationEntity> createEvaluation(
             Long appointmentId, Long evaluatorId,
             CourseEvaluationEntity.EvaluatorType evaluatorType, String content) {
 
-        // 验证预约是否存在且已完成
+        // 1. 校验预约存在且已完成
         Optional<CourseAppointmentEntity> appointmentOpt = appointmentRepository.findById(appointmentId);
         if (appointmentOpt.isEmpty()) {
             return Result.error(StatusCode.FAIL, "课程预约不存在");
         }
-
         CourseAppointmentEntity appointment = appointmentOpt.get();
         if (appointment.getStatus() != CourseAppointmentEntity.AppointmentStatus.COMPLETED) {
             return Result.error(StatusCode.FAIL, "只有已完成的课程才能评价");
         }
 
-        // 验证评价人是否与课程相关
-        if (evaluatorType == CourseEvaluationEntity.EvaluatorType.STUDENT
-                && !appointment.getStudentId().equals(evaluatorId)) {
-            return Result.error(StatusCode.FAIL, "您不是该课程的学员，无法评价");
+        // 2. 校验评价人是否与课程相关
+        boolean isStudentValid = evaluatorType == CourseEvaluationEntity.EvaluatorType.STUDENT
+                && appointment.getStudentId().equals(evaluatorId);
+        boolean isCoachValid = evaluatorType == CourseEvaluationEntity.EvaluatorType.COACH
+                && appointment.getCoachId().equals(evaluatorId);
+        if (!isStudentValid && !isCoachValid) {
+            return Result.error(StatusCode.FAIL, "您无权限评价此课程");
         }
 
-        if (evaluatorType == CourseEvaluationEntity.EvaluatorType.COACH
-                && !appointment.getCoachId().equals(evaluatorId)) {
-            return Result.error(StatusCode.FAIL, "您不是该课程的教练，无法评价");
-        }
-
-        // 检查是否已评价
-        List<CourseEvaluationEntity> existingEvaluations = evaluationRepository
-                .findByAppointmentId(appointmentId);
-        boolean alreadyEvaluated = existingEvaluations.stream()
+        // 3. 校验是否已评价
+        List<CourseEvaluationEntity> existing = evaluationRepository.findByAppointmentId(appointmentId);
+        boolean alreadyEvaluated = existing.stream()
                 .anyMatch(e -> e.getEvaluatorId().equals(evaluatorId)
                         && e.getEvaluatorType() == evaluatorType);
-
         if (alreadyEvaluated) {
             return Result.error(StatusCode.FAIL, "您已评价过该课程");
         }
 
-        // 创建评价记录
+        // 4. 创建评价（时间由@PrePersist自动维护）
         CourseEvaluationEntity evaluation = new CourseEvaluationEntity();
         evaluation.setAppointmentId(appointmentId);
         evaluation.setEvaluatorId(evaluatorId);
         evaluation.setEvaluatorType(evaluatorType);
         evaluation.setContent(content);
-        evaluation.setCreateTime(LocalDateTime.now());
+        CourseEvaluationEntity saved = evaluationRepository.save(evaluation);
 
-        CourseEvaluationEntity savedEvaluation = evaluationRepository.save(evaluation);
-        return Result.success(savedEvaluation);
+        return Result.success(saved);
     }
 
     /**
-     * 获取课程的所有评价
+     * 获取课程的所有评价（原逻辑不变）
      */
     public Result<List<CourseEvaluationEntity>> getEvaluationsByAppointment(Long appointmentId) {
         List<CourseEvaluationEntity> evaluations = evaluationRepository.findByAppointmentId(appointmentId);
@@ -130,7 +112,7 @@ public class CourseEvaluationService {
     }
 
     /**
-     * 获取用户的所有评价记录
+     * 获取用户的评价记录（原逻辑不变）
      */
     public Result<List<CourseEvaluationEntity>> getEvaluationsByUser(
             Long userId, CourseEvaluationEntity.EvaluatorType type) {
@@ -139,4 +121,57 @@ public class CourseEvaluationService {
         return Result.success(evaluations);
     }
 
+    /**
+     * 编辑评价（新增核心逻辑）
+     */
+    @Transactional
+    public Result<CourseEvaluationEntity> updateEvaluation(
+            Long evaluationId, String content, Long evaluatorId) {
+
+        // 1. 校验评价是否存在
+        Optional<CourseEvaluationEntity> evaluationOpt = evaluationRepository.findById(evaluationId);
+        if (evaluationOpt.isEmpty()) {
+            return Result.error(StatusCode.FAIL, "评价不存在或已删除");
+        }
+        CourseEvaluationEntity evaluation = evaluationOpt.get();
+
+        // 2. 校验权限：只能编辑自己的评价
+        if (!evaluation.getEvaluatorId().equals(evaluatorId)) {
+            return Result.error(StatusCode.FAIL, "无权限修改他人评价");
+        }
+
+        // 3. 校验评价内容不为空
+        if (content == null || content.trim().isEmpty()) {
+            return Result.error(StatusCode.FAIL, "评价内容不能为空");
+        }
+
+        // 4. 更新内容（updateTime由@PreUpdate自动维护）
+        evaluation.setContent(content);
+        CourseEvaluationEntity updated = evaluationRepository.save(evaluation);
+
+        return Result.success(updated);
+    }
+
+    /**
+     * 删除评价（新增核心逻辑）
+     */
+    @Transactional
+    public Result<Boolean> deleteEvaluation(Long evaluationId, Long evaluatorId) {
+
+        // 1. 校验评价是否存在
+        Optional<CourseEvaluationEntity> evaluationOpt = evaluationRepository.findById(evaluationId);
+        if (evaluationOpt.isEmpty()) {
+            return Result.error(StatusCode.FAIL, "评价不存在或已删除");
+        }
+        CourseEvaluationEntity evaluation = evaluationOpt.get();
+
+        // 2. 校验权限：只能删除自己的评价
+        if (!evaluation.getEvaluatorId().equals(evaluatorId)) {
+            return Result.error(StatusCode.FAIL, "无权限删除他人评价");
+        }
+
+        // 3. 执行删除
+        evaluationRepository.delete(evaluation);
+        return Result.success(true);
+    }
 }
