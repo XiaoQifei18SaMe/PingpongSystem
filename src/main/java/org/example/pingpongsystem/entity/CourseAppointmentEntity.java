@@ -47,6 +47,7 @@ public class CourseAppointmentEntity {
         CONFIRMED,        // 已确认
         CANCEL_REQUESTED, // 已发起取消申请
         CANCELLED,        // 已取消
-        REJECTED          // 已拒绝
+        REJECTED,          // 已拒绝
+        COMPLETED         // 已完成（课程结束）
     }
 }
