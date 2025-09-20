@@ -59,4 +59,9 @@ public class CoachController {
         return coachService.getRelatedStudents(coachId);
     }
 
+    @GetMapping("/get_student_detail")
+    public Result<StudentEntity> getCoachStudentDetail(@RequestParam Long studentId) {
+        return coachService.getCoachStudentDetail(studentId);
+    }
+
 }

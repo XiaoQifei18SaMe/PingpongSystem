@@ -320,4 +320,16 @@ public class CoachService {
             return Result.error(StatusCode.FAIL, "获取相关学员失败");
         }
     }
+
+
+    public Result<StudentEntity> getCoachStudentDetail(Long studentId) {
+        // 1. 根据ID查询教练
+        Optional<StudentEntity> studentOpt = studentRepository.findById(studentId);
+        if (!studentOpt.isPresent()) {
+            return Result.error(StatusCode.FAIL, "未找到该学生信息");
+        }
+        StudentEntity student = studentOpt.get();
+        return Result.success(student);
+
+    }
 }
