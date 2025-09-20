@@ -14,6 +14,10 @@ public interface NotificationRepository extends JpaRepository<NotificationEntity
     List<NotificationEntity> findByUserIdAndUserTypeAndIsReadFalse(
             Long userId, NotificationEntity.UserType userType);
 
+    // 按类型查询通知
+    List<NotificationEntity> findByUserIdAndUserTypeAndType(
+            Long userId, NotificationEntity.UserType userType, NotificationEntity.NotificationType type);
+
     // 标记通知为已读
     @Modifying
     @Query("UPDATE NotificationEntity n SET n.isRead = true WHERE n.id = :notificationId")

@@ -21,4 +21,9 @@ public interface CoachTeachStudentRepository extends JpaRepository<CoachTeachStu
     List<CoachTeachStudentEntity> findByCoachIdAndIsConfirmed(Long coachId,boolean isConfirmed);
     // 新增：验证已确认的双选关系
     boolean existsByCoachIdAndStudentIdAndIsConfirmed(Long coachId, Long studentId, boolean isConfirmed);
+
+    // CoachTeachStudentRepository.java 新增方法
+    long countByStudentIdAndCoachIdAndIsConfirmedTrue(Long studentId, Long coachId);
+    List<CoachTeachStudentEntity> findByStudentIdAndIsConfirmedTrue(Long studentId);
+    void deleteByStudentIdAndCoachId(Long studentId, Long coachId);
 }

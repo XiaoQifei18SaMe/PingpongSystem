@@ -21,6 +21,7 @@ public class CoachController {
 
     @PostMapping("/create_user")
     public Result<String> createUser(CoachEntity coachEntity, @RequestParam MultipartFile file) {
+        System.out.println("教练性别" + coachEntity.isMale());
         Result<String> result = coachService.save(coachEntity, file);
         return result;
     }

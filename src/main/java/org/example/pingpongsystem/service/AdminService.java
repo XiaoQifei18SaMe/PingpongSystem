@@ -26,13 +26,15 @@ public class AdminService {
     private final AdminRepository adminRepository;
     private final CoachRepository coachRepository;
     private final TokenService tokenService;
+    private final StudentRepository studentRepository;
 
-    public AdminService(SchoolRepository schoolRepository, TableRepository tableRepository, AdminRepository adminRepository, CoachRepository coachRepository, TokenService tokenService) {
+    public AdminService(SchoolRepository schoolRepository, TableRepository tableRepository, AdminRepository adminRepository, CoachRepository coachRepository, TokenService tokenService,StudentRepository studentRepository) {
         this.schoolRepository = schoolRepository;
         this.tableRepository = tableRepository;
         this.adminRepository = adminRepository;
         this.coachRepository = coachRepository;
         this.tokenService = tokenService;
+        this.studentRepository = studentRepository;
     }
 
     public Result<String> login(String username, String password) {
@@ -235,4 +237,72 @@ public class AdminService {
         }
     }
 
+
+    public Result<List<CoachEntity>> getCoachesBySchoolId(String token, Long schoolId) {
+        // 1. 通过token获取管理员信息
+        Result<InfoAns> infoResult = tokenService.getInfo(token);
+        if (!infoResult.isSuccess()) {
+            return Result.error(StatusCode.FAIL, "获取管理员信息失败：" + infoResult.getMessage());
+        }
+        InfoAns adminInfo = infoResult.getData();
+        if (!"admin".equals(adminInfo.getRole()) && !"super_admin".equals(adminInfo.getRole())) {
+            return Result.error(StatusCode.FAIL, "权限不足，非管理员用户");
+        }
+        Long adminId = Long.valueOf(adminInfo.getUserId());
+
+        // 2. 验证校区是否属于该管理员管辖
+        Result<Boolean> checkResult = checkSchoolManagedByAdmin(adminId, schoolId);
+        if (!checkResult.isSuccess()) {
+            return Result.error(checkResult.getCode(), checkResult.getMessage());
+        }
+
+        // 3. 查询该校区的所有教练（假设CoachRepository有findBySchoolId方法）
+        List<CoachEntity> coaches = coachRepository.findBySchoolId(schoolId);
+        return Result.success(coaches);
+    }
+
+    /**
+     * 按校区ID获取学生列表（需验证校区是否属于当前管理员管辖）
+     */
+    public Result<List<StudentEntity>> getStudentsBySchoolId(String token, Long schoolId) {
+        // 1. 通过token获取管理员信息
+        Result<InfoAns> infoResult = tokenService.getInfo(token);
+        if (!infoResult.isSuccess()) {
+            return Result.error(StatusCode.FAIL, "获取管理员信息失败：" + infoResult.getMessage());
+        }
+        InfoAns adminInfo = infoResult.getData();
+        if (!"admin".equals(adminInfo.getRole()) && !"super_admin".equals(adminInfo.getRole())) {
+            return Result.error(StatusCode.FAIL, "权限不足，非管理员用户");
+        }
+        Long adminId = Long.valueOf(adminInfo.getUserId());
+
+        // 2. 验证校区是否属于该管理员管辖
+        Result<Boolean> checkResult = checkSchoolManagedByAdmin(adminId, schoolId);
+        if (!checkResult.isSuccess()) {
+            return Result.error(checkResult.getCode(), checkResult.getMessage());
+        }
+
+        // 3. 查询该校区的所有学生（假设StudentRepository有findBySchoolId方法）
+        List<StudentEntity> students = studentRepository.findBySchoolId(schoolId);
+        return Result.success(students);
+    }
+
+    /**
+     * 校验校区是否由指定管理员管辖
+     */
+    private Result<Boolean> checkSchoolManagedByAdmin(Long adminId, Long schoolId) {
+        // 检查校区是否存在
+        Optional<SchoolEntity> schoolOpt = schoolRepository.findById(schoolId);
+        if (schoolOpt.isEmpty()) {
+            return Result.error(StatusCode.FAIL, "校区不存在");
+        }
+
+        // 检查校区的管理员ID是否与当前管理员一致
+        SchoolEntity school = schoolOpt.get();
+        if (!school.getAdminId().equals(adminId)) {
+            return Result.error(StatusCode.FAIL, "权限不足，该校区不属于您管辖");
+        }
+
+        return Result.success(true);
+    }
 }

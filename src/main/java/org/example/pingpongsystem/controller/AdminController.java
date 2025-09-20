@@ -63,4 +63,19 @@ public class AdminController {
         return adminService.updateInfo(info);
     }
 
+
+    @GetMapping("/get_coaches_by_school")
+    public Result<List<CoachEntity>> getCoachesBySchoolId(
+            @RequestParam String token,
+            @RequestParam Long schoolId) {
+        return adminService.getCoachesBySchoolId(token, schoolId);
+    }
+
+    @GetMapping("/get_students_by_school")
+    public Result<List<StudentEntity>> getStudentsBySchoolId(
+            @RequestParam String token,
+            @RequestParam Long schoolId) {
+        return adminService.getStudentsBySchoolId(token, schoolId);
+    }
+
 }

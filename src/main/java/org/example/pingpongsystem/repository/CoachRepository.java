@@ -10,4 +10,8 @@ public interface CoachRepository extends JpaRepository<CoachEntity, Long> {
     CoachEntity findByUsername(String name);
 
     List<CoachEntity> findAllByisCertified(boolean certified);
+
+    List<CoachEntity> findBySchoolIdAndIsCertifiedTrue(Long schoolId);
+
+    List<CoachEntity> findBySchoolId(Long schoolId); // 新增
 }

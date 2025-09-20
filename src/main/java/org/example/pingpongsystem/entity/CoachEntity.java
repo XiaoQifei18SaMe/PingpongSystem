@@ -57,4 +57,8 @@ public class CoachEntity {
 
     @Version
     private Integer version;
+    // 手动定义setIsMale，覆盖Lombok的默认实现
+    public void setIsMale(boolean isMale) {
+        this.isMale = isMale;
+    }
 }

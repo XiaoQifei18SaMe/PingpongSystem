@@ -102,7 +102,7 @@ public class CoachService {
                     temp.setName(coach.getName());
             }
             if (coach.isMale() != temp.isMale()) {
-                temp.setMale(coach.isMale());
+                temp.setIsMale(coach.isMale());
             }
             if (coach.getAge() != temp.getAge()) {
                 if (coach.getAge() > 0 && coach.getAge() < 200)

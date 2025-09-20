@@ -25,7 +25,7 @@ public class CourseEvaluationService {
     private final NotificationService notificationService;
 
     /**
-     * 定时任务：处理已结束课程（原逻辑不变）
+     * 定时任务：处理已结束课程
      */
     @Scheduled(cron = "0 */1 * * * ?")  // 每1分钟执行一次（测试用，可调整为每小时）
     @Transactional
@@ -40,18 +40,16 @@ public class CourseEvaluationService {
             course.setStatus(CourseAppointmentEntity.AppointmentStatus.COMPLETED);
             appointmentRepository.save(course);
 
-            // 发送评价通知（原逻辑不变）
-            notificationService.createNotification(
+            // 发送评价通知（使用新的通知方法）
+            notificationService.createEvaluationNotification(
                     course.getStudentId(),
                     NotificationEntity.UserType.STUDENT,
-                    course.getId(),
-                    "您有一节课程已完成，请对教练进行评价"
+                    course.getId()
             );
-            notificationService.createNotification(
+            notificationService.createEvaluationNotification(
                     course.getCoachId(),
                     NotificationEntity.UserType.COACH,
-                    course.getId(),
-                    "您有一节课程已完成，请对学员进行评价"
+                    course.getId()
             );
         }
     }
@@ -173,5 +171,38 @@ public class CourseEvaluationService {
         // 3. 执行删除
         evaluationRepository.delete(evaluation);
         return Result.success(true);
+    }
+
+    /**
+     * 定时任务：发送课程提醒（上课前1小时）
+     */
+    @Scheduled(cron = "0 */10 * * * ?")  // 每10分钟检查一次
+    @Transactional
+    public void sendCourseReminders() {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime reminderTime = now.plusHours(1); // 1小时后
+
+        // 查询1小时后将要开始的课程
+        List<CourseAppointmentEntity> upcomingCourses = appointmentRepository.findAll().stream()
+                .filter(appointment -> appointment.getStatus() == CourseAppointmentEntity.AppointmentStatus.CONFIRMED
+                        && appointment.getStartTime().isAfter(now)
+                        && appointment.getStartTime().isBefore(reminderTime.plusMinutes(5))) // 允许5分钟误差
+                .toList();
+
+        for (CourseAppointmentEntity course : upcomingCourses) {
+            // 发送给学员
+            notificationService.createCourseReminderNotification(
+                    course.getStudentId(),
+                    NotificationEntity.UserType.STUDENT,
+                    course.getId()
+            );
+
+            // 发送给教练
+            notificationService.createCourseReminderNotification(
+                    course.getCoachId(),
+                    NotificationEntity.UserType.COACH,
+                    course.getId()
+            );
+        }
     }
 }
