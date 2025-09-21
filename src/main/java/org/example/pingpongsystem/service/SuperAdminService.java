@@ -25,14 +25,16 @@ public class SuperAdminService {
     private final AdminRepository adminRepository;
     private final TokenService tokenService;
     private final CoachRepository coachRepository;
+    private final CoachAccountService coachAccountService;
 
-    public SuperAdminService(SuperAdminRepository superAdminRepository, SchoolRepository schoolRepository, TableRepository tableRepository, AdminRepository adminRepository, TokenService tokenService, CoachRepository coachRepository) {
+    public SuperAdminService(SuperAdminRepository superAdminRepository, SchoolRepository schoolRepository, TableRepository tableRepository, AdminRepository adminRepository, TokenService tokenService, CoachRepository coachRepository,CoachAccountService coachAccountService) {
         this.superAdminRepository = superAdminRepository;
         this.schoolRepository = schoolRepository;
         this.tableRepository = tableRepository;
         this.adminRepository = adminRepository;
         this.tokenService = tokenService;
         this.coachRepository = coachRepository;
+        this.coachAccountService = coachAccountService;
     }
 
     public Result<AdminEntity> createAdmin(AdminEntity admin) {
@@ -273,6 +275,8 @@ public class SuperAdminService {
             if (isAccepted) {
                 coach.setCertified(true);
                 coach.setLevel(level);
+                // 审核通过时创建教练账户
+                coachAccountService.createCoachAccount(coachId);
                 return Result.success(coachRepository.save(coach));
             } else {
                 coachRepository.delete(coach);

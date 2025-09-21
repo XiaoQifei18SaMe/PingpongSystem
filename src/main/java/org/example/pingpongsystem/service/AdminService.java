@@ -27,14 +27,16 @@ public class AdminService {
     private final CoachRepository coachRepository;
     private final TokenService tokenService;
     private final StudentRepository studentRepository;
+    private final CoachAccountService coachAccountService;
 
-    public AdminService(SchoolRepository schoolRepository, TableRepository tableRepository, AdminRepository adminRepository, CoachRepository coachRepository, TokenService tokenService,StudentRepository studentRepository) {
+    public AdminService(SchoolRepository schoolRepository, TableRepository tableRepository, AdminRepository adminRepository, CoachRepository coachRepository, TokenService tokenService,StudentRepository studentRepository, CoachAccountService coachAccountService) {
         this.schoolRepository = schoolRepository;
         this.tableRepository = tableRepository;
         this.adminRepository = adminRepository;
         this.coachRepository = coachRepository;
         this.tokenService = tokenService;
         this.studentRepository = studentRepository;
+        this.coachAccountService = coachAccountService;
     }
 
     public Result<String> login(String username, String password) {
@@ -104,6 +106,11 @@ public class AdminService {
             if (isAccepted) {
                 coach.setCertified(true);
                 coach.setLevel(level);
+                coachRepository.save(coach);
+
+                // 审核通过时创建教练账户
+                coachAccountService.createCoachAccount(coachId);
+
                 System.out.println(coach.getName());
                 return Result.success(coach);
             }

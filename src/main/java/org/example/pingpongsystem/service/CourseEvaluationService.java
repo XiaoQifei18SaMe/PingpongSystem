@@ -1,11 +1,11 @@
 package org.example.pingpongsystem.service;
 
 import lombok.RequiredArgsConstructor;
-import org.example.pingpongsystem.entity.CourseAppointmentEntity;
-import org.example.pingpongsystem.entity.CourseEvaluationEntity;
-import org.example.pingpongsystem.entity.NotificationEntity;
+import org.example.pingpongsystem.entity.*;
 import org.example.pingpongsystem.repository.CourseAppointmentRepository;
 import org.example.pingpongsystem.repository.CourseEvaluationRepository;
+import org.example.pingpongsystem.repository.CoursePaymentRecordRepository;
+import org.example.pingpongsystem.repository.PaymentRecordRepository;
 import org.example.pingpongsystem.utility.Result;
 import org.example.pingpongsystem.utility.StatusCode;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -23,7 +23,9 @@ public class CourseEvaluationService {
     private final CourseEvaluationRepository evaluationRepository;
     private final CourseAppointmentRepository appointmentRepository;
     private final NotificationService notificationService;
-
+    private final CoursePaymentRecordRepository coursePaymentRecordRepository;
+    private final CoachAccountService coachAccountService;
+    private final PaymentRecordRepository paymentRecordRepository;
     /**
      * 定时任务：处理已结束课程
      */
@@ -39,6 +41,31 @@ public class CourseEvaluationService {
         for (CourseAppointmentEntity course : completedCourses) {
             course.setStatus(CourseAppointmentEntity.AppointmentStatus.COMPLETED);
             appointmentRepository.save(course);
+
+            // 检查是否已经给教练付过款
+            if (!coursePaymentRecordRepository.existsByAppointmentId(course.getId())) {
+                // 获取支付记录
+                Long paymentRecordId = course.getPaymentRecordId();
+                if (paymentRecordId != null) {
+                    PaymentRecordEntity paymentRecord = paymentRecordRepository.findById(paymentRecordId)
+                            .orElse(null);
+
+                    // 给教练付款并记录交易
+                    if (paymentRecord != null) {
+                        // 调用新的带交易记录的方法
+                        coachAccountService.addBalance(course.getCoachId(), paymentRecord.getAmount(), course.getId());
+
+                        // 记录付款信息，防止重复付款
+                        CoursePaymentRecordEntity paymentRecordEntity = new CoursePaymentRecordEntity();
+                        paymentRecordEntity.setAppointmentId(course.getId());
+                        paymentRecordEntity.setCoachId(course.getCoachId());
+                        paymentRecordEntity.setAmount(paymentRecord.getAmount());
+                        paymentRecordEntity.setPaymentRecordId(paymentRecordId);
+                        coursePaymentRecordRepository.save(paymentRecordEntity);
+                    }
+                }
+            }
+
 
             // 发送评价通知（使用新的通知方法）
             notificationService.createEvaluationNotification(
