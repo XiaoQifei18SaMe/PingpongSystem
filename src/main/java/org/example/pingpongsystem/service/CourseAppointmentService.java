@@ -121,17 +121,10 @@ public class CourseAppointmentService {
                             account.getBalance(), totalAmount));
         }
 
-        // ---------------------- 新增：创建支付记录（账户余额支付） ----------------------
-        PaymentRecordEntity paymentRecord = new PaymentRecordEntity();
-        paymentRecord.setStudentId(studentId);
-        paymentRecord.setAmount(totalAmount);
-        paymentRecord.setPaymentMethod("ACCOUNT"); // 标记为账户余额支付
-        paymentRecord.setStatus("SUCCESS"); // 此时已扣减余额，状态为成功
-        paymentRecord.setCreateTime(LocalDateTime.now());
-        paymentRecord.setPayTime(LocalDateTime.now()); // 支付时间与创建时间一致
-        PaymentRecordEntity savedRecord = paymentRecordRepository.save(paymentRecord); // 保存支付记录
+        // 8. 创建支付记录（账户余额支付）- 金额为负数表示消费
+        PaymentRecordEntity savedRecord = paymentService.createCoursePaymentRecord(studentId, totalAmount);
 
-        // 8. 扣减余额（使用乐观锁防止并发问题）
+// 9. 扣减余额（使用乐观锁防止并发问题）
         try {
             account.setBalance(account.getBalance() - totalAmount);
             studentAccountRepository.save(account); // 乐观锁会自动检查version
@@ -140,8 +133,9 @@ public class CourseAppointmentService {
             return Result.error(StatusCode.FAIL, "操作过于频繁，请稍后重试");
         }
 
+
         // ---------------------- 原有预约创建逻辑调整 ----------------------
-        // 9. 创建预约记录（状态改为等待确认）
+        // 10. 创建预约记录（状态改为等待确认）
         CourseAppointmentEntity appointment = new CourseAppointmentEntity();
         appointment.setCoachId(coachId);
         appointment.setStudentId(studentId);

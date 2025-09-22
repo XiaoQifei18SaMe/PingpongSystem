@@ -4,6 +4,7 @@ package org.example.pingpongsystem.controller;
 import org.example.pingpongsystem.entity.PaymentRecordEntity;
 import org.example.pingpongsystem.service.PaymentService;
 import org.example.pingpongsystem.utility.Result;
+import org.springframework.data.domain.Page;
 import org.springframework.web.bind.annotation.*;
 
 @RequestMapping("/payment")
@@ -40,5 +41,16 @@ public class PaymentController {
     @PostMapping("/cancel")
     public Result<String> cancelPayment(@RequestParam Long recordId) {
         return paymentService.cancelPayment(recordId);
+    }
+
+    // 新增：获取交易记录
+    @GetMapping("/records")
+    public Result<Page<PaymentRecordEntity>> getPaymentRecords(
+            @RequestParam Long studentId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String method) {
+        return paymentService.getPaymentRecords(studentId, page, size, status, method);
     }
 }

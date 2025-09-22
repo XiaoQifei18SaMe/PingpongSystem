@@ -26,8 +26,17 @@ public class SuperAdminService {
     private final TokenService tokenService;
     private final CoachRepository coachRepository;
     private final CoachAccountService coachAccountService;
-
-    public SuperAdminService(SuperAdminRepository superAdminRepository, SchoolRepository schoolRepository, TableRepository tableRepository, AdminRepository adminRepository, TokenService tokenService, CoachRepository coachRepository,CoachAccountService coachAccountService) {
+    private final StudentRepository studentRepository;
+    private final ScheduleRepository scheduleRepository;
+    public SuperAdminService(SuperAdminRepository superAdminRepository,
+                             SchoolRepository schoolRepository,
+                             TableRepository tableRepository,
+                             AdminRepository adminRepository,
+                             TokenService tokenService,
+                             CoachRepository coachRepository,
+                             CoachAccountService coachAccountService,
+                             StudentRepository studentRepository,
+                             ScheduleRepository scheduleRepository) {
         this.superAdminRepository = superAdminRepository;
         this.schoolRepository = schoolRepository;
         this.tableRepository = tableRepository;
@@ -35,6 +44,8 @@ public class SuperAdminService {
         this.tokenService = tokenService;
         this.coachRepository = coachRepository;
         this.coachAccountService = coachAccountService;
+        this.studentRepository = studentRepository;
+        this.scheduleRepository = scheduleRepository;
     }
 
     public Result<AdminEntity> createAdmin(AdminEntity admin) {
@@ -232,6 +243,24 @@ public class SuperAdminService {
                 return Result.error(StatusCode.USERNAME_NOT_FOUND, "学校不存在");
             }
 
+            // 检查是否有关联学生
+            List<StudentEntity> students = studentRepository.findBySchoolId(id);
+            if (!students.isEmpty()) {
+                return Result.error(StatusCode.FAIL, "该学校关联了学生，请先解除关联");
+            }
+
+            // 检查是否有关联教练
+            List<CoachEntity> coaches = coachRepository.findBySchoolId(id);
+            if (!coaches.isEmpty()) {
+                return Result.error(StatusCode.FAIL, "该学校关联了教练，请先解除关联");
+            }
+
+            // 检查是否有关联课表
+            List<ScheduleEntity> schedules = scheduleRepository.findBySchoolId(id);
+            if (!schedules.isEmpty()) {
+                return Result.error(StatusCode.FAIL, "该学校有关联的课表，请先删除课表");
+            }
+
             // 删除关联的球台
             List<TableEntity> tables = tableRepository.findAllBySchoolId(id);
             tableRepository.deleteAll(tables);
@@ -244,6 +273,7 @@ public class SuperAdminService {
             return Result.error(StatusCode.FAIL, "删除学校失败");
         }
     }
+
 
     // 获取所有待审核教练
     public Result<List<CoachEntity>> getAllUncertifiedCoaches() {
