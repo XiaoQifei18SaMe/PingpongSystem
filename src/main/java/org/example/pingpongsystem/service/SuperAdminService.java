@@ -1,5 +1,6 @@
 package org.example.pingpongsystem.service;
 
+import jakarta.persistence.criteria.Predicate;
 import jakarta.validation.ConstraintViolationException;
 import org.example.pingpongsystem.entity.*;
 import org.example.pingpongsystem.repository.*;
@@ -9,11 +10,16 @@ import org.example.pingpongsystem.utility.StatusCode;
 import org.example.pingpongsystem.utility.interfaces.InfoAns;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -390,5 +396,218 @@ public class SuperAdminService {
             System.err.println("更新超级管理员信息失败：" + e.getMessage());
             return Result.error(StatusCode.FAIL, "更新信息失败");
         }
+    }
+
+    /**
+     * 超级管理员分页查询所有学生（支持校区和姓名筛选）
+     */
+    public Result<Page<StudentEntity>> getAllStudentsWithPage(
+            String token,
+            Long schoolId,
+            String name,
+            Integer pageNum,
+            Integer pageSize) {
+        // 1. 验证token和超级管理员权限
+        Result<InfoAns> infoResult = tokenService.getInfo(token);
+        if (!infoResult.isSuccess()) {
+            return Result.error(StatusCode.FAIL, "令牌无效：" + infoResult.getMessage());
+        }
+        InfoAns superAdminInfo = infoResult.getData();
+        if (!"super_admin".equals(superAdminInfo.getRole())) {
+            return Result.error(StatusCode.FAIL, "权限不足，非超级管理员");
+        }
+
+        // 2. 分页参数处理（页码从0开始）
+        Pageable pageable = PageRequest.of(pageNum - 1, pageSize);
+
+        // 3. 动态构建筛选条件（超级管理员无校区权限限制）
+        Specification<StudentEntity> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            // 校区筛选（可选，无权限限制）
+            if (schoolId != null) {
+                predicates.add(cb.equal(root.get("schoolId"), schoolId));
+            }
+
+            // 姓名模糊筛选
+            if (name != null && !name.trim().isEmpty()) {
+                String fuzzyName = "%" + name.trim() + "%";
+                predicates.add(cb.like(root.get("name"), fuzzyName));
+            }
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        // 4. 执行查询
+        Page<StudentEntity> students = studentRepository.findAll(spec, pageable);
+        return Result.success(students);
+    }
+
+    /**
+     * 超级管理员分页查询所有已认证教练（支持多条件筛选）
+     */
+    public Result<Page<CoachEntity>> getAllCertifiedCoachesWithPage(
+            String token,
+            Long schoolId,
+            String name,
+            Integer level,
+            Integer pageNum,
+            Integer pageSize) {
+        // 1. 验证token和超级管理员权限
+        Result<InfoAns> infoResult = tokenService.getInfo(token);
+        if (!infoResult.isSuccess()) {
+            return Result.error(StatusCode.FAIL, "令牌无效：" + infoResult.getMessage());
+        }
+        InfoAns superAdminInfo = infoResult.getData();
+        if (!"super_admin".equals(superAdminInfo.getRole())) {
+            return Result.error(StatusCode.FAIL, "权限不足，非超级管理员");
+        }
+
+        // 2. 分页参数处理
+        Pageable pageable = PageRequest.of(pageNum - 1, pageSize);
+
+        // 3. 动态构建筛选条件
+        Specification<CoachEntity> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            // 固定筛选已认证教练
+            predicates.add(cb.equal(root.get("isCertified"), true));
+
+            // 校区筛选（可选）
+            if (schoolId != null) {
+                predicates.add(cb.equal(root.get("schoolId"), schoolId));
+            }
+
+            // 姓名模糊筛选
+            if (name != null && !name.trim().isEmpty()) {
+                String fuzzyName = "%" + name.trim() + "%";
+                predicates.add(cb.like(root.get("name"), fuzzyName));
+            }
+
+            // 等级筛选（可选）
+            if (level != null && (level == 10 || level == 100 || level == 1000)) {
+                predicates.add(cb.equal(root.get("level"), level));
+            }
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        // 4. 执行查询
+        Page<CoachEntity> coaches = coachRepository.findAll(spec, pageable);
+        return Result.success(coaches);
+    }
+
+    /**
+     * 超级管理员更新学生信息（无校区权限限制）
+     */
+    @Transactional
+    public Result<StudentEntity> updateStudent(String token, StudentEntity updatedStudent) {
+        // 1. 验证超级管理员权限
+        Result<InfoAns> infoResult = tokenService.getInfo(token);
+        if (!infoResult.isSuccess()) {
+            return Result.error(StatusCode.FAIL, "令牌无效：" + infoResult.getMessage());
+        }
+        InfoAns superAdminInfo = infoResult.getData();
+        if (!"super_admin".equals(superAdminInfo.getRole())) {
+            return Result.error(StatusCode.FAIL, "权限不足，非超级管理员");
+        }
+
+        // 2. 检查学生是否存在
+        Long studentId = updatedStudent.getId();
+        if (studentId == null) {
+            return Result.error(StatusCode.FAIL, "学生ID不能为空");
+        }
+        Optional<StudentEntity> studentOpt = studentRepository.findById(studentId);
+        if (studentOpt.isEmpty()) {
+            return Result.error(StatusCode.FAIL, "未找到该学生");
+        }
+        StudentEntity student = studentOpt.get();
+
+        // 3. 超级管理员无需校区权限检查，直接更新信息
+        if (updatedStudent.getName() != null && !updatedStudent.getName().isEmpty()) {
+            student.setName(updatedStudent.getName());
+        }
+        if (updatedStudent.getPhone() != null && !updatedStudent.getPhone().isEmpty()) {
+            student.setPhone(updatedStudent.getPhone());
+        }
+        if (updatedStudent.getEmail() != null && !updatedStudent.getEmail().isEmpty()) {
+            student.setEmail(updatedStudent.getEmail());
+        }
+        if (updatedStudent.getAge() != null && updatedStudent.getAge() > 0 && updatedStudent.getAge() < 200) {
+            student.setAge(updatedStudent.getAge());
+        }
+        if (updatedStudent.isMale() != student.isMale()) {
+            student.setMale(updatedStudent.isMale());
+        }
+
+        // 允许跨校区转移学生（超级管理员特权）
+        if (updatedStudent.getSchoolId() != null && !updatedStudent.getSchoolId().equals(student.getSchoolId())) {
+            // 仅需验证目标校区是否存在
+            if (!schoolRepository.existsById(updatedStudent.getSchoolId())) {
+                return Result.error(StatusCode.FAIL, "目标校区不存在");
+            }
+            student.setSchoolId(updatedStudent.getSchoolId());
+        }
+
+        // 4. 保存更新
+        StudentEntity savedStudent = studentRepository.save(student);
+        return Result.success(savedStudent);
+    }
+
+    /**
+     * 超级管理员更新已认证教练信息（无校区权限限制）
+     */
+    @Transactional
+    public Result<CoachEntity> updateCertifiedCoach(String token, CoachEntity updatedCoach) {
+        // 1. 验证超级管理员权限
+        Result<InfoAns> infoResult = tokenService.getInfo(token);
+        if (!infoResult.isSuccess()) {
+            return Result.error(StatusCode.FAIL, "令牌无效：" + infoResult.getMessage());
+        }
+        InfoAns superAdminInfo = infoResult.getData();
+        if (!"super_admin".equals(superAdminInfo.getRole())) {
+            return Result.error(StatusCode.FAIL, "权限不足，非超级管理员");
+        }
+
+        // 2. 检查教练是否存在且已认证
+        Long coachId = updatedCoach.getId();
+        if (coachId == null) {
+            return Result.error(StatusCode.FAIL, "教练ID不能为空");
+        }
+        Optional<CoachEntity> coachOpt = coachRepository.findById(coachId);
+        if (coachOpt.isEmpty()) {
+            return Result.error(StatusCode.FAIL, "未找到该教练");
+        }
+        CoachEntity coach = coachOpt.get();
+        if (!coach.isCertified()) {
+            return Result.error(StatusCode.FAIL, "仅允许更新已认证教练的信息");
+        }
+
+        // 3. 超级管理员无需校区权限检查，直接更新信息
+        if (updatedCoach.getName() != null && !updatedCoach.getName().isEmpty()) {
+            coach.setName(updatedCoach.getName());
+        }
+        if (updatedCoach.getPhone() != null && !updatedCoach.getPhone().isEmpty()) {
+            coach.setPhone(updatedCoach.getPhone());
+        }
+        if (updatedCoach.getEmail() != null && !updatedCoach.getEmail().isEmpty()) {
+            coach.setEmail(updatedCoach.getEmail());
+        }
+        if (updatedCoach.getAge() > 0 && updatedCoach.getAge() < 200) {
+            coach.setAge(updatedCoach.getAge());
+        }
+        if ((updatedCoach.getLevel() == 10 || updatedCoach.getLevel() == 100 || updatedCoach.getLevel() == 1000)) {
+            coach.setLevel(updatedCoach.getLevel());
+        }
+        if (updatedCoach.getDescription() != null) {
+            coach.setDescription(updatedCoach.getDescription());
+        }
+        if (updatedCoach.getIsMale() != coach.getIsMale()) {
+            coach.setIsMale(updatedCoach.getIsMale());
+        }
+
+        // 4. 保存更新
+        CoachEntity savedCoach = coachRepository.save(coach);
+        return Result.success(savedCoach);
     }
 }

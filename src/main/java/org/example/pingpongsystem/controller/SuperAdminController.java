@@ -7,6 +7,7 @@ import org.example.pingpongsystem.service.CoachService;
 import org.example.pingpongsystem.service.SuperAdminService;
 import org.example.pingpongsystem.utility.Result;
 import org.example.pingpongsystem.utility.interfaces.InfoAns;
+import org.springframework.data.domain.Page;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -128,5 +129,45 @@ public class SuperAdminController {
     public Result<SuperAdminEntity> updateSuperAdminInfo(@RequestBody InfoAns info) {
         return superAdminService.updateInfo(info);
     }
+
+    // 新增：分页查询所有校区学生（支持筛选）
+    @GetMapping("/all-students")
+    public Result<Page<StudentEntity>> getAllStudents(
+            @RequestParam String token,
+            @RequestParam(required = false) Long schoolId,
+            @RequestParam(required = false) String name,
+            @RequestParam(defaultValue = "1") Integer pageNum,
+            @RequestParam(defaultValue = "10") Integer pageSize) {
+        return superAdminService.getAllStudentsWithPage(token, schoolId, name, pageNum, pageSize);
+    }
+
+    // 新增：分页查询所有已认证教练（支持筛选）
+    @GetMapping("/all-certified-coaches")
+    public Result<Page<CoachEntity>> getAllCertifiedCoaches(
+            @RequestParam String token,
+            @RequestParam(required = false) Long schoolId,
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) Integer level,
+            @RequestParam(defaultValue = "1") Integer pageNum,
+            @RequestParam(defaultValue = "10") Integer pageSize) {
+        return superAdminService.getAllCertifiedCoachesWithPage(token, schoolId, name, level, pageNum, pageSize);
+    }
+
+    // 新增：超级管理员更新学生信息
+    @PostMapping("/update-student")
+    public Result<StudentEntity> updateStudent(
+            @RequestParam String token,
+            @RequestBody StudentEntity student) {
+        return superAdminService.updateStudent(token, student);
+    }
+
+    // 新增：超级管理员更新已认证教练信息
+    @PostMapping("/update-certified-coach")
+    public Result<CoachEntity> updateCertifiedCoach(
+            @RequestParam String token,
+            @RequestBody CoachEntity coach) {
+        return superAdminService.updateCertifiedCoach(token, coach);
+    }
+
 
 }
