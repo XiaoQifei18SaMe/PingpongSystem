@@ -4,6 +4,7 @@ import lombok.Data;
 import org.example.pingpongsystem.entity.*;
 import org.example.pingpongsystem.service.AdminService;
 import org.example.pingpongsystem.service.CoachService;
+import org.example.pingpongsystem.service.PaymentService;
 import org.example.pingpongsystem.service.SuperAdminService;
 import org.example.pingpongsystem.utility.Result;
 import org.example.pingpongsystem.utility.interfaces.InfoAns;
@@ -18,10 +19,14 @@ import java.util.List;
 public class SuperAdminController {
     private final SuperAdminService superAdminService;
     private final AdminService adminService;
+    private final PaymentService paymentService;
 
-    public SuperAdminController(SuperAdminService superAdminService, AdminService adminService) {
+    public SuperAdminController(SuperAdminService superAdminService,
+                                AdminService adminService,
+                                PaymentService paymentService) {
         this.superAdminService = superAdminService;
         this.adminService = adminService;
+        this.paymentService = paymentService;
     }
 
     @PostMapping("/login")
@@ -169,5 +174,12 @@ public class SuperAdminController {
         return superAdminService.updateCertifiedCoach(token, coach);
     }
 
+    @PostMapping("/recharge")
+    public Result<PaymentRecordEntity> superAdminOfflineRecharge(
+            @RequestParam Long studentId,
+            @RequestParam Double amount) {  // 添加token参数用于权限验证
+        // 可以在这里添加超级管理员权限验证逻辑
+        return paymentService.adminOfflineRecharge(studentId, amount);
+    }
 
 }
