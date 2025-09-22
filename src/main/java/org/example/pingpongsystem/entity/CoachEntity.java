@@ -61,4 +61,5 @@ public class CoachEntity {
     public void setIsMale(boolean isMale) {
         this.isMale = isMale;
     }
+    public boolean getIsMale() { return this.isMale; }
 }

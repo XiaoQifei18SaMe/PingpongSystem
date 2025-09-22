@@ -101,8 +101,8 @@ public class CoachService {
                 if (!coach.getName().isEmpty())
                     temp.setName(coach.getName());
             }
-            if (coach.isMale() != temp.isMale()) {
-                temp.setIsMale(coach.isMale());
+            if (coach.getIsMale() != temp.getIsMale()) {
+                temp.setIsMale(coach.getIsMale());
             }
             if (coach.getAge() != temp.getAge()) {
                 if (coach.getAge() > 0 && coach.getAge() < 200)
@@ -120,7 +120,7 @@ public class CoachService {
             if (!coach.getDescription().equals(temp.getDescription())) {
                 if (!coach.getDescription().isEmpty()) {
                     temp.setDescription(coach.getDescription());
-                    temp.setCertified(false);
+                    //temp.setCertified(false);
                 }
             }
 
@@ -132,7 +132,7 @@ public class CoachService {
             // 新增：如果传入了教练照片路径，更新照片（原逻辑保留，这里兼容前端分离上传）
             if (coach.getPhotoPath() != null && !coach.getPhotoPath().isEmpty()) {
                 temp.setPhotoPath(coach.getPhotoPath());
-                temp.setCertified(false);  // 照片变更需重新审核
+                //temp.setCertified(false);  // 照片变更需重新审核
             }
 
             return Result.success(temp);
@@ -158,7 +158,7 @@ public class CoachService {
         }
         if (isMale != null) {
             li = li.stream()
-                    .filter(coach -> isMale.equals(coach.isMale()))
+                    .filter(coach -> isMale.equals(coach.getIsMale()))
                     .collect(Collectors.toList());
         }
         if (age_low != null) {

@@ -74,7 +74,7 @@ public class TokenService {
                     infoAns.setUsername(coach.get().getUsername());
                     infoAns.setPassword(coach.get().getPassword());
                     infoAns.setAge(coach.get().getAge());
-                    infoAns.setMale(coach.get().isMale());
+                    infoAns.setMale(coach.get().getIsMale());
                     infoAns.setPhone(coach.get().getPhone());
                     infoAns.setEmail(coach.get().getEmail());
                     infoAns.setSchoolId(coach.get().getSchoolId());

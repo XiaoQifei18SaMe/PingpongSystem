@@ -47,10 +47,12 @@ public class PaymentController {
     @GetMapping("/records")
     public Result<Page<PaymentRecordEntity>> getPaymentRecords(
             @RequestParam Long studentId,
-            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String method) {
-        return paymentService.getPaymentRecords(studentId, page, size, status, method);
+        // 前端页码从1开始，转换为后端从0开始的页码，同时确保页码不小于0
+        int actualPage = Math.max(page - 1, 0);
+        return paymentService.getPaymentRecords(studentId, actualPage, size, status, method);
     }
 }

@@ -7,6 +7,7 @@ import org.example.pingpongsystem.service.CoachService;
 import org.example.pingpongsystem.service.SuperAdminService;
 import org.example.pingpongsystem.utility.Result;
 import org.example.pingpongsystem.utility.interfaces.InfoAns;
+import org.springframework.data.domain.Page;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -78,4 +79,41 @@ public class AdminController {
         return adminService.getStudentsBySchoolId(token, schoolId);
     }
 
+    // 查看所辖校区学生列表（分页）
+    @GetMapping("/students")
+    public Result<Page<StudentEntity>> getManagedStudents(
+            @RequestParam String token,
+            @RequestParam(required = false) Long schoolId,
+            @RequestParam(required = false) String name,
+            @RequestParam(defaultValue = "1") Integer pageNum,  // 页码，默认第1页
+            @RequestParam(defaultValue = "10") Integer pageSize) {  // 每页条数，默认10条
+        return adminService.getStudentsBySchoolIdWithPage(token, schoolId, name, pageNum, pageSize);
+    }
+
+    // 查看所辖校区已认证教练列表（分页）
+    @GetMapping("/certified-coaches")
+    public Result<Page<CoachEntity>> getManagedCertifiedCoaches(
+            @RequestParam String token,
+            @RequestParam(required = false) Long schoolId,
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) Integer level,
+            @RequestParam(defaultValue = "1") Integer pageNum,
+            @RequestParam(defaultValue = "10") Integer pageSize) {
+        return adminService.getCertifiedCoachesBySchoolIdWithPage(token, schoolId, name, level, pageNum, pageSize);
+    }
+
+    // 原有修改接口保持不变...
+    @PostMapping("/update-student")
+    public Result<StudentEntity> updateStudent(
+            @RequestParam String token,
+            @RequestBody StudentEntity student) {
+        return adminService.updateStudent(token, student);
+    }
+
+    @PostMapping("/update-certified-coach")
+    public Result<CoachEntity> updateCertifiedCoach(
+            @RequestParam String token,
+            @RequestBody CoachEntity coach) {
+        return adminService.updateCertifiedCoach(token, coach);
+    }
 }

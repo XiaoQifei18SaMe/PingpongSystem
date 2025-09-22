@@ -1,5 +1,6 @@
 package org.example.pingpongsystem.service;
 
+import jakarta.persistence.criteria.Predicate;
 import jakarta.validation.ConstraintViolationException;
 import org.example.pingpongsystem.entity.*;
 import org.example.pingpongsystem.repository.*;
@@ -9,6 +10,10 @@ import org.example.pingpongsystem.utility.StatusCode;
 import org.example.pingpongsystem.utility.interfaces.InfoAns;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -18,6 +23,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+
+
 
 @Service
 public class AdminService {
@@ -311,5 +318,272 @@ public class AdminService {
         }
 
         return Result.success(true);
+    }
+
+    /**
+     * 分页查询所辖校区学生（新增姓名筛选）
+     * 新增参数：String name - 学生姓名（模糊筛选，可选）
+     */
+    public Result<Page<StudentEntity>> getStudentsBySchoolIdWithPage(
+            String token,
+            Long schoolId,
+            String name, // 新增：学生姓名筛选参数
+            Integer pageNum,
+            Integer pageSize) {
+        // 1. 原有逻辑：token验证+权限校验
+        Result<InfoAns> infoResult = tokenService.getInfo(token);
+        if (!infoResult.isSuccess()) {
+            return Result.error(StatusCode.FAIL, "令牌无效：" + infoResult.getMessage());
+        }
+        InfoAns adminInfo = infoResult.getData();
+        if (!"admin".equals(adminInfo.getRole()) && !"super_admin".equals(adminInfo.getRole())) {
+            return Result.error(StatusCode.FAIL, "权限不足，非管理员");
+        }
+        Long adminId = Long.valueOf(adminInfo.getUserId());
+
+        // 2. 原有逻辑：获取管理员所辖校区ID列表
+        List<SchoolEntity> managedSchools = schoolRepository.findByAdminId(adminId);
+        if (managedSchools.isEmpty()) {
+            return Result.success(Page.empty());
+        }
+        List<Long> managedSchoolIds = managedSchools.stream()
+                .map(SchoolEntity::getId)
+                .collect(Collectors.toList());
+
+        // 3. 原有逻辑：校验schoolId权限（若指定校区）
+        if (schoolId != null && !managedSchoolIds.contains(schoolId)) {
+            return Result.error(StatusCode.FAIL, "无权限访问该校区");
+        }
+
+        // 4. 分页参数（页码从0开始，前端传1对应第0页）
+        Pageable pageable = PageRequest.of(pageNum - 1, pageSize);
+
+        // 5. 新增核心：动态构建筛选条件（校区+姓名）
+        Specification<StudentEntity> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            // 条件1：校区筛选（指定校区/所辖所有校区）
+            if (schoolId != null) {
+                // 指定单个校区：schoolId = 传入值
+                predicates.add(cb.equal(root.get("schoolId"), schoolId));
+            } else {
+                // 未指定校区：schoolId 在管理员所辖校区列表中
+                predicates.add(root.get("schoolId").in(managedSchoolIds));
+            }
+
+            // 条件2：姓名模糊筛选（仅当name非空且去空格后不为空）
+            if (name != null && !name.trim().isEmpty()) {
+                String fuzzyName = "%" + name.trim() + "%"; // 模糊匹配格式：%姓名%
+                predicates.add(cb.like(root.get("name"), fuzzyName));
+            }
+
+            // 组合所有条件
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        // 6. 执行分页查询（使用动态条件）
+        Page<StudentEntity> students = studentRepository.findAll(spec, pageable);
+
+        return Result.success(students);
+    }
+
+
+    /**
+     * 分页查询所辖校区已认证教练（新增姓名+等级筛选）
+     * 新增参数：String name - 教练姓名（模糊筛选）、Integer level - 教练等级（精确筛选）
+     */
+    public Result<Page<CoachEntity>> getCertifiedCoachesBySchoolIdWithPage(
+            String token,
+            Long schoolId,
+            String name, // 新增：教练姓名筛选
+            Integer level, // 新增：教练等级筛选（10/100/1000）
+            Integer pageNum,
+            Integer pageSize) {
+        // 1. 原有逻辑：token验证+权限校验
+        Result<InfoAns> infoResult = tokenService.getInfo(token);
+        if (!infoResult.isSuccess()) {
+            return Result.error(StatusCode.FAIL, "令牌无效：" + infoResult.getMessage());
+        }
+        InfoAns adminInfo = infoResult.getData();
+        if (!"admin".equals(adminInfo.getRole()) && !"super_admin".equals(adminInfo.getRole())) {
+            return Result.error(StatusCode.FAIL, "权限不足，非管理员");
+        }
+        Long adminId = Long.valueOf(adminInfo.getUserId());
+
+        // 2. 原有逻辑：获取管理员所辖校区ID列表
+        List<SchoolEntity> managedSchools = schoolRepository.findByAdminId(adminId);
+        if (managedSchools.isEmpty()) {
+            return Result.success(Page.empty());
+        }
+        List<Long> managedSchoolIds = managedSchools.stream()
+                .map(SchoolEntity::getId)
+                .collect(Collectors.toList());
+
+        // 3. 原有逻辑：校验schoolId权限（若指定校区）
+        if (schoolId != null && !managedSchoolIds.contains(schoolId)) {
+            return Result.error(StatusCode.FAIL, "无权限访问该校区");
+        }
+
+        // 4. 分页参数（页码从0开始）
+        Pageable pageable = PageRequest.of(pageNum - 1, pageSize);
+
+        // 5. 新增核心：动态构建筛选条件（校区+已认证+姓名+等级）
+        Specification<CoachEntity> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            // 条件1：固定筛选「已认证教练」（接口语义要求）
+            predicates.add(cb.equal(root.get("isCertified"), true));
+
+            // 条件2：校区筛选（指定校区/所辖所有校区）
+            if (schoolId != null) {
+                predicates.add(cb.equal(root.get("schoolId"), schoolId));
+            } else {
+                predicates.add(root.get("schoolId").in(managedSchoolIds));
+            }
+
+            // 条件3：姓名模糊筛选（仅当name非空且去空格后不为空）
+            if (name != null && !name.trim().isEmpty()) {
+                String fuzzyName = "%" + name.trim() + "%";
+                predicates.add(cb.like(root.get("name"), fuzzyName));
+            }
+
+            // 条件4：等级精确筛选（仅当level为合法值：10/100/1000）
+            if (level != null && (level == 10 || level == 100 || level == 1000)) {
+                predicates.add(cb.equal(root.get("level"), level));
+            }
+
+            // 组合所有条件
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        // 6. 执行分页查询（使用动态条件）
+        Page<CoachEntity> coaches = coachRepository.findAll(spec, pageable);
+
+        return Result.success(coaches);
+    }
+
+    @Transactional
+    public Result<CoachEntity> updateCertifiedCoach(String token, CoachEntity updatedCoach) {
+        // 1. 验证管理员权限
+        Result<InfoAns> infoResult = tokenService.getInfo(token);
+        if (!infoResult.isSuccess()) {
+            return Result.error(StatusCode.FAIL, "令牌无效：" + infoResult.getMessage());
+        }
+        InfoAns adminInfo = infoResult.getData();
+        if (!"admin".equals(adminInfo.getRole()) && !"super_admin".equals(adminInfo.getRole())) {
+            return Result.error(StatusCode.FAIL, "权限不足，非管理员用户");
+        }
+        Long adminId = Long.valueOf(adminInfo.getUserId());
+
+        // 2. 检查教练是否存在
+        Long coachId = updatedCoach.getId();
+        if (coachId == null) {
+            return Result.error(StatusCode.FAIL, "教练ID不能为空");
+        }
+        Optional<CoachEntity> coachOpt = coachRepository.findById(coachId);
+        if (coachOpt.isEmpty()) {
+            return Result.error(StatusCode.FAIL, "未找到该教练");
+        }
+        CoachEntity coach = coachOpt.get();
+
+        // 3. 检查教练是否已认证（仅允许更新已认证教练）
+        if (!coach.isCertified()) {
+            return Result.error(StatusCode.FAIL, "仅允许更新已认证教练的信息");
+        }
+
+        // 4. 验证教练所属校区是否由当前管理员管辖
+        Result<Boolean> checkResult = checkSchoolManagedByAdmin(adminId, coach.getSchoolId());
+        if (!checkResult.isSuccess()) {
+            return Result.error(checkResult.getCode(), checkResult.getMessage());
+        }
+
+        // 5. 更新教练信息（按需更新可修改字段）
+        if (updatedCoach.getName() != null && !updatedCoach.getName().isEmpty()) {
+            coach.setName(updatedCoach.getName());
+        }
+        if (updatedCoach.getPhone() != null && !updatedCoach.getPhone().isEmpty()) {
+            coach.setPhone(updatedCoach.getPhone());
+        }
+        if (updatedCoach.getEmail() != null && !updatedCoach.getEmail().isEmpty()) {
+            coach.setEmail(updatedCoach.getEmail());
+        }
+        if (updatedCoach.getAge() > 0 && updatedCoach.getAge() < 200) {
+            coach.setAge(updatedCoach.getAge());
+        }
+        if (updatedCoach.getLevel() == 10 || updatedCoach.getLevel() == 100 || updatedCoach.getLevel() == 1000) {
+            coach.setLevel(updatedCoach.getLevel());
+        }
+        if (updatedCoach.getDescription() != null) {
+            coach.setDescription(updatedCoach.getDescription());
+        }
+        // 注意：如果更新照片或核心信息，可能需要重新审核（根据业务需求调整）
+        coach.setIsMale(updatedCoach.getIsMale());
+        // 6. 保存更新
+        CoachEntity savedCoach = coachRepository.save(coach);
+        return Result.success(savedCoach);
+    }
+
+    /**
+     * 更新学生信息（管理员权限）
+     */
+    @Transactional
+    public Result<StudentEntity> updateStudent(String token, StudentEntity updatedStudent) {
+        // 1. 验证管理员权限
+        Result<InfoAns> infoResult = tokenService.getInfo(token);
+        if (!infoResult.isSuccess()) {
+            return Result.error(StatusCode.FAIL, "令牌无效：" + infoResult.getMessage());
+        }
+        InfoAns adminInfo = infoResult.getData();
+        if (!"admin".equals(adminInfo.getRole()) && !"super_admin".equals(adminInfo.getRole())) {
+            return Result.error(StatusCode.FAIL, "权限不足，非管理员用户");
+        }
+        Long adminId = Long.valueOf(adminInfo.getUserId());
+
+        // 2. 检查学生是否存在
+        Long studentId = updatedStudent.getId();
+        if (studentId == null) {
+            return Result.error(StatusCode.FAIL, "学生ID不能为空");
+        }
+        Optional<StudentEntity> studentOpt = studentRepository.findById(studentId);
+        if (studentOpt.isEmpty()) {
+            return Result.error(StatusCode.FAIL, "未找到该学生");
+        }
+        StudentEntity student = studentOpt.get();
+
+        // 3. 验证学生所属校区是否由当前管理员管辖
+        Result<Boolean> checkResult = checkSchoolManagedByAdmin(adminId, student.getSchoolId());
+        if (!checkResult.isSuccess()) {
+            return Result.error(checkResult.getCode(), checkResult.getMessage());
+        }
+
+        // 4. 更新学生信息（按需更新可修改字段）
+        if (updatedStudent.getName() != null && !updatedStudent.getName().isEmpty()) {
+            student.setName(updatedStudent.getName());
+        }
+        if (updatedStudent.getPhone() != null && !updatedStudent.getPhone().isEmpty()) {
+            student.setPhone(updatedStudent.getPhone());
+        }
+        if (updatedStudent.getEmail() != null && !updatedStudent.getEmail().isEmpty()) {
+            student.setEmail(updatedStudent.getEmail());
+        }
+        if (updatedStudent.getAge() != null && updatedStudent.getAge() > 0 && updatedStudent.getAge() < 200) {
+            student.setAge(updatedStudent.getAge());
+        }
+        if (updatedStudent.isMale() != student.isMale()) {
+            student.setMale(updatedStudent.isMale());
+        }
+        // 注意：如果允许修改校区，需要额外校验新校区是否属于该管理员管辖
+        if (updatedStudent.getSchoolId() != null && !updatedStudent.getSchoolId().equals(student.getSchoolId())) {
+            Result<Boolean> newSchoolCheck = checkSchoolManagedByAdmin(adminId, updatedStudent.getSchoolId());
+            if (newSchoolCheck.isSuccess()) {
+                student.setSchoolId(updatedStudent.getSchoolId());
+            } else {
+                return Result.error(newSchoolCheck.getCode(), "无权将学生转移到该校区：" + newSchoolCheck.getMessage());
+            }
+        }
+
+        // 5. 保存更新
+        StudentEntity savedStudent = studentRepository.save(student);
+        return Result.success(savedStudent);
     }
 }
