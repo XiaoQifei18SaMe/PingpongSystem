@@ -164,137 +164,6 @@ public class MonthlyMatchService {
         }
     }
 
-    // 安排赛程
-    private void arrangeMatchSchedule(Long matchId) {
-        // 处理每个组别
-        for (MatchRegistrationEntity.GroupType groupType : MatchRegistrationEntity.GroupType.values()) {
-            List<MatchRegistrationEntity> registrations = registrationRepository
-                    .findByMonthlyMatchIdAndGroupType(matchId, groupType);
-
-            if (registrations.isEmpty()) continue;
-
-            // 获取所有球台
-            List<TableEntity> tables = tableRepository.findAll();
-            if (tables.isEmpty()) {
-                throw new RuntimeException("没有可用球台，无法安排比赛");
-            }
-
-            // 根据人数进行分组
-            List<List<MatchRegistrationEntity>> subgroups = splitIntoSubgroups(registrations);
-
-            // 为每个小组创建记录并安排赛程
-            for (int i = 0; i < subgroups.size(); i++) {
-                List<MatchRegistrationEntity> subgroup = subgroups.get(i);
-
-                // 创建小组记录
-                MatchGroupEntity group = new MatchGroupEntity();
-                group.setMonthlyMatchId(matchId);
-                group.setGroupType(groupType);
-                group.setSubgroupNumber(i + 1);
-                group.setSize(subgroup.size());
-                MatchGroupEntity savedGroup = groupRepository.save(group);
-
-                // 安排小组内的比赛
-                arrangeSubgroupMatches(savedGroup.getId(), subgroup, tables);
-            }
-        }
-    }
-
-    // 将报名者分成小组（每组最多6人）
-    private List<List<MatchRegistrationEntity>> splitIntoSubgroups(List<MatchRegistrationEntity> registrations) {
-        List<List<MatchRegistrationEntity>> subgroups = new ArrayList<>();
-        int groupSize = 6;
-        int total = registrations.size();
-
-        // 随机打乱顺序
-        Collections.shuffle(registrations);
-
-        for (int i = 0; i < total; i += groupSize) {
-            int end = Math.min(i + groupSize, total);
-            subgroups.add(registrations.subList(i, end));
-        }
-
-        return subgroups;
-    }
-
-    // 安排小组内的比赛
-    private void arrangeSubgroupMatches(Long groupId, List<MatchRegistrationEntity> subgroup, List<TableEntity> tables) {
-        int n = subgroup.size();
-        if (n <= 1) return; // 不足2人无法比赛
-
-        // 为每位选手分配编号
-        Map<Integer, Long> playerNumbers = new HashMap<>();
-        for (int i = 0; i < n; i++) {
-            playerNumbers.put(i + 1, subgroup.get(i).getStudentId());
-        }
-
-        // 计算轮次
-        int rounds = n % 2 == 0 ? n - 1 : n;
-
-        // 安排每一轮比赛
-        for (int round = 1; round <= rounds; round++) {
-            List<MatchScheduleEntity> roundMatches = new ArrayList<>();
-
-            // 根据奇偶人数安排不同的对阵
-            if (n % 2 == 0) {
-                // 偶数人
-                for (int i = 1; i <= n / 2; i++) {
-                    int opponent = n - i + 1;
-                    if (i == 1 && round > 1) {
-                        opponent = n - round + 2;
-                    } else if (i > 1) {
-                        opponent = (i + round - 2) % (n - 1) + 2;
-                    }
-
-                    MatchScheduleEntity schedule = createMatchSchedule(
-                            groupId, round, playerNumbers.get(i), playerNumbers.get(opponent), tables);
-                    roundMatches.add(schedule);
-                }
-            } else {
-                // 奇数人（有轮空）
-                for (int i = 1; i <= (n - 1) / 2; i++) {
-                    int opponent;
-                    if (i == 1) {
-                        opponent = (round % (n - 1) == 0) ? n : round % (n - 1) + 1;
-                        if (opponent == 1) opponent = n;
-                    } else {
-                        opponent = (i + round - 2) % (n - 1) + 2;
-                        if (opponent == i) opponent = n;
-                    }
-
-                    MatchScheduleEntity schedule = createMatchSchedule(
-                            groupId, round, playerNumbers.get(i), playerNumbers.get(opponent), tables);
-                    roundMatches.add(schedule);
-                }
-
-                // 安排轮空选手
-                int byePlayer = (round % (n - 1) == 0) ? 1 : round % (n - 1) + 1;
-                MatchScheduleEntity byeSchedule = createMatchSchedule(
-                        groupId, round, playerNumbers.get(byePlayer), null, tables);
-                roundMatches.add(byeSchedule);
-            }
-
-            scheduleRepository.saveAll(roundMatches);
-        }
-    }
-
-    // 创建单场比赛安排
-    private MatchScheduleEntity createMatchSchedule(Long groupId, int round, Long player1Id, Long player2Id, List<TableEntity> tables) {
-        MatchScheduleEntity schedule = new MatchScheduleEntity();
-        // 从月赛ID中提取（实际应该通过groupId查询获得）
-        Long matchId = groupRepository.findById(groupId).orElseThrow().getMonthlyMatchId();
-
-        schedule.setMonthlyMatchId(matchId);
-        schedule.setGroupId(groupId);
-        schedule.setRoundNumber(round);
-        schedule.setPlayer1Id(player1Id);
-        schedule.setPlayer2Id(player2Id);
-        // 随机分配球台
-        schedule.setTableId(tables.get(new Random().nextInt(tables.size())).getId());
-        schedule.setResult(MatchScheduleEntity.MatchResult.NOT_STARTED);
-
-        return schedule;
-    }
 
     // 获取学员的报名记录
     public Result<List<MatchRegistrationEntity>> getStudentRegistrations(Long studentId) {
@@ -382,5 +251,164 @@ public class MonthlyMatchService {
             return Result.error(StatusCode.FAIL, "月赛不存在");
         }
         return Result.success(matchOpt.get());
+    }
+
+
+    /**
+     * 1. 顶层赛程安排入口：按组别拆分报名者，创建小组并触发组内全循环赛程
+     * 核心修改：确保分组逻辑正确，传递必要参数给子函数
+     */
+    private void arrangeMatchSchedule(Long matchId) {
+        // 遍历所有组别类型（如男子组、女子组等，根据GroupType枚举动态适配）
+        for (MatchRegistrationEntity.GroupType groupType : MatchRegistrationEntity.GroupType.values()) {
+            // 1. 获取当前月赛、当前组别的有效报名记录
+            List<MatchRegistrationEntity> registrations = registrationRepository
+                    .findByMonthlyMatchIdAndGroupType(matchId, groupType);
+            if (registrations.isEmpty()) {
+                continue; // 该组别无报名，跳过处理
+            }
+
+            // 2. 获取所有可用球台（无球台时抛异常，确保赛程可执行）
+            List<TableEntity> availableTables = tableRepository.findAll();
+            if (availableTables.isEmpty()) {
+                throw new RuntimeException("月赛ID：" + matchId + "，组别：" + groupType + " - 无可用球台，无法安排比赛");
+            }
+
+            // 3. 将报名者拆分为「每组最多6人」的子组（超过6人时分更小的组）
+            List<List<MatchRegistrationEntity>> subgroups = splitIntoSubgroups(registrations);
+
+            // 4. 为每个子组创建小组记录，并安排组内全循环比赛
+            for (int i = 0; i < subgroups.size(); i++) {
+                List<MatchRegistrationEntity> currentSubgroup = subgroups.get(i);
+
+                // 4.1 保存小组信息（关联月赛、组别、小组编号、实际人数）
+                MatchGroupEntity group = new MatchGroupEntity();
+                group.setMonthlyMatchId(matchId);
+                group.setGroupType(groupType);
+                group.setSubgroupNumber(i + 1); // 小组编号从1开始（用户易理解）
+                group.setSize(currentSubgroup.size()); // 记录真实参赛人数（不含虚拟轮空）
+                MatchGroupEntity savedGroup = groupRepository.save(group);
+
+                // 4.2 触发当前子组的全循环赛程安排
+                arrangeSubgroupMatches(savedGroup.getId(), currentSubgroup, availableTables);
+            }
+        }
+    }
+
+    /**
+     * 2. 报名者分组：将报名列表拆分为「每组最多6人」的子组，支持随机打乱
+     * 核心修改：将subList转为独立ArrayList，避免原列表修改导致的视图异常
+     */
+    private List<List<MatchRegistrationEntity>> splitIntoSubgroups(List<MatchRegistrationEntity> registrations) {
+        List<List<MatchRegistrationEntity>> subgroups = new ArrayList<>();
+        final int MAX_GROUP_SIZE = 6; // 每组最多6人（需求明确）
+        int totalRegistrants = registrations.size();
+
+        // 随机打乱报名顺序（确保分组公平性，避免固定顺序影响对阵）
+        Collections.shuffle(registrations);
+
+        // 拆分逻辑：从0开始，每MAX_GROUP_SIZE人一组，最后一组不足6人也保留
+        for (int i = 0; i < totalRegistrants; i += MAX_GROUP_SIZE) {
+            // 计算当前组的结束索引（避免超出列表长度）
+            int endIndex = Math.min(i + MAX_GROUP_SIZE, totalRegistrants);
+            // 关键修改：用new ArrayList()将subList转为独立列表（原subList依赖原列表，易出问题）
+            List<MatchRegistrationEntity> subgroup = new ArrayList<>(registrations.subList(i, endIndex));
+            subgroups.add(subgroup);
+        }
+
+        return subgroups;
+    }
+
+    /**
+     * 3. 单场比赛创建：封装比赛基本信息，关联小组、轮次、选手、球台
+     * 核心修改：增强异常提示，明确参数来源，确保轮空时player2Id为null
+     */
+    private MatchScheduleEntity createMatchSchedule(Long groupId, int round, Long player1Id, Long player2Id, List<TableEntity> tables) {
+        // 通过小组ID查询关联的月赛ID（确保数据一致性）
+        MatchGroupEntity group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new RuntimeException("小组不存在，小组ID：" + groupId));
+
+        MatchScheduleEntity schedule = new MatchScheduleEntity();
+        schedule.setMonthlyMatchId(group.getMonthlyMatchId()); // 关联月赛（从小组间接获取，避免直接传参错误）
+        schedule.setGroupId(groupId); // 关联当前小组
+        schedule.setRoundNumber(round); // 轮次（从循环参数传入）
+        schedule.setPlayer1Id(player1Id); // 选手1（轮空时不为null）
+        schedule.setPlayer2Id(player2Id); // 选手2（轮空时为null，符合实体定义）
+        // 随机分配球台：从可用球台中随机选一个（确保球台资源有效）
+        schedule.setTableId(tables.get(new Random().nextInt(tables.size())).getId());
+        schedule.setResult(MatchScheduleEntity.MatchResult.NOT_STARTED); // 初始状态：未开始
+
+        return schedule;
+    }
+
+    /**
+     * 4. 组内全循环赛程：核心逻辑，实现「固定1号+顺时针轮转」+ 奇数轮空优化
+     * 核心修改：重构对阵逻辑，用虚拟轮空统一奇偶处理，确保匹配用户示例
+     */
+    private void arrangeSubgroupMatches(Long groupId, List<MatchRegistrationEntity> subgroup, List<TableEntity> tables) {
+        // 步骤1：提取当前小组的真实选手ID（排除轮空，仅保留实际报名学员）
+        List<Long> realPlayerIds = subgroup.stream()
+                .map(MatchRegistrationEntity::getStudentId)
+                .collect(Collectors.toList());
+        int realPlayerCount = realPlayerIds.size();
+        if (realPlayerCount < 2) {
+            return; // 不足2人，无法安排比赛（含轮空也至少需2个"名额"）
+        }
+
+        // 步骤2：奇数人数处理：添加虚拟轮空标记（-1L），统一按偶数逻辑计算
+        List<Long> extendedPlayerIds = new ArrayList<>(realPlayerIds);
+        if (realPlayerCount % 2 != 0) {
+            extendedPlayerIds.add(-1L); // -1L为虚拟轮空，后续替换为null
+        }
+        int extendedSize = extendedPlayerIds.size(); // 扩展后的人数（必为偶数）
+        int totalRounds = extendedSize - 1; // 全循环轮次：人数-1（如6人5轮，5人+轮空6人也5轮）
+
+        // 步骤3：初始化当前轮选手列表（从初始扩展列表开始）
+        List<Long> currentRoundPlayers = new ArrayList<>(extendedPlayerIds);
+
+        // 步骤4：循环安排每一轮比赛
+        for (int round = 1; round <= totalRounds; round++) {
+            List<MatchScheduleEntity> roundMatches = new ArrayList<>();
+
+            // 4.1 生成当前轮对阵：从列表两端向中间配对（0↔n-1，1↔n-2，...）
+            for (int i = 0; i < extendedSize / 2; i++) {
+                int opponentIndex = extendedSize - 1 - i;
+                Long player1 = currentRoundPlayers.get(i);
+                Long player2 = currentRoundPlayers.get(opponentIndex);
+
+                // 4.2 虚拟轮空替换：将-1L转为null（符合MatchScheduleEntity的轮空定义）
+                player1 = (player1 != null && player1.equals(-1L)) ? null : player1;
+                player2 = (player2 != null && player2.equals(-1L)) ? null : player2;
+
+                // 4.3 轮空逻辑优化：确保player1不为null（轮空选手作为player1，player2为null）
+                if (player1 == null) {
+                    // 交换选手顺序，避免player1为null（实体中player1可非空，player2可空）
+                    Long temp = player1;
+                    player1 = player2;
+                    player2 = temp;
+                }
+
+                // 4.4 无效配对过滤（理论上不会触发，双重保障）
+                if (player1 == null) {
+                    continue;
+                }
+
+                // 4.5 创建单场比赛并加入当前轮列表
+                MatchScheduleEntity match = createMatchSchedule(
+                        groupId, round, player1, player2, tables);
+                roundMatches.add(match);
+            }
+
+            // 4.6 保存当前轮比赛（批量保存，提升效率）
+            if (!roundMatches.isEmpty()) {
+                scheduleRepository.saveAll(roundMatches);
+            }
+
+            // 4.7 顺时针轮转：固定第1位，将最后1位移到第2位（核心轮转逻辑）
+            if (extendedSize > 2) { // 仅当人数>2时需要轮转（人数=2时1轮即可，无需轮转）
+                Long lastPlayer = currentRoundPlayers.remove(extendedSize - 1); // 移除最后一位
+                currentRoundPlayers.add(1, lastPlayer); // 插入到第2位（索引1）
+            }
+        }
     }
 }
