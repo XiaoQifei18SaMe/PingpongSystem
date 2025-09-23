@@ -19,4 +19,9 @@ public class TableService {
     public Result<List<TableEntity>> getAllTables() {
         return Result.success(tableRepository.findAll());
     }
+
+    public Result<List<TableEntity>> getTablesBySchoolId(Long schoolId) {
+        List<TableEntity> tables = tableRepository.findAllBySchoolId(schoolId);
+        return Result.success(tables);
+    }
 }
