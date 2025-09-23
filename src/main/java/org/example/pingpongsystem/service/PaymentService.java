@@ -235,4 +235,15 @@ public class PaymentService {
 
         return Result.success(savedRecord);
     }
+
+    // 创建月赛报名支付记录
+    public PaymentRecordEntity createMatchPaymentRecord(Long studentId, double amount) {
+        PaymentRecordEntity record = new PaymentRecordEntity();
+        record.setStudentId(studentId);
+        record.setAmount(-amount); // 负数表示支出
+        record.setPaymentMethod(PaymentRecordEntity.PaymentMethod.ACCOUNT);
+        record.setStatus(PaymentRecordEntity.PaymentStatus.SUCCESS);
+        record.setCreateTime(LocalDateTime.now());
+        return paymentRecordRepository.save(record);
+    }
 }
