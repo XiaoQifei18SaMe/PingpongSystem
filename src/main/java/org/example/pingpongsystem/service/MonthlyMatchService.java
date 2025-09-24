@@ -666,12 +666,12 @@ public class MonthlyMatchService {
             // 选手1姓名
             if (schedule.getPlayer1Id() != null) {
                 Optional<StudentEntity> student1Opt = studentRepository.findById(schedule.getPlayer1Id());
-                student1Opt.ifPresent(student -> schedule.setPlayer1Name(student.getName()));
+                student1Opt.ifPresent(student -> schedule.setPlayer1Name(student.getUsername() + "(" + student.getName() + ")"));
             }
             // 选手2姓名（轮空时为null）
             if (schedule.getPlayer2Id() != null) {
                 Optional<StudentEntity> student2Opt = studentRepository.findById(schedule.getPlayer2Id());
-                student2Opt.ifPresent(student -> schedule.setPlayer2Name(student.getName()));
+                student2Opt.ifPresent(student -> schedule.setPlayer2Name(student.getUsername() + "(" + student.getName() + ")"));
             }
         }
 
