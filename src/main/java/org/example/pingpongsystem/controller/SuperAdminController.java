@@ -2,17 +2,16 @@ package org.example.pingpongsystem.controller;
 
 import lombok.Data;
 import org.example.pingpongsystem.entity.*;
-import org.example.pingpongsystem.service.AdminService;
-import org.example.pingpongsystem.service.CoachService;
-import org.example.pingpongsystem.service.PaymentService;
-import org.example.pingpongsystem.service.SuperAdminService;
+import org.example.pingpongsystem.service.*;
 import org.example.pingpongsystem.utility.Result;
+import org.example.pingpongsystem.utility.StatusCode;
 import org.example.pingpongsystem.utility.interfaces.InfoAns;
 import org.springframework.data.domain.Page;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Optional;
 
 @RequestMapping("/super_admin")
 @RestController
@@ -20,13 +19,16 @@ public class SuperAdminController {
     private final SuperAdminService superAdminService;
     private final AdminService adminService;
     private final PaymentService paymentService;
+    private final SystemActivationService activationService;
 
     public SuperAdminController(SuperAdminService superAdminService,
                                 AdminService adminService,
-                                PaymentService paymentService) {
+                                PaymentService paymentService,
+                                SystemActivationService systemActivationService) {
         this.superAdminService = superAdminService;
         this.adminService = adminService;
         this.paymentService = paymentService;
+        this.activationService = systemActivationService;
     }
 
     @PostMapping("/login")
@@ -180,6 +182,31 @@ public class SuperAdminController {
             @RequestParam Double amount) {  // 添加token参数用于权限验证
         // 可以在这里添加超级管理员权限验证逻辑
         return paymentService.adminOfflineRecharge(studentId, amount);
+    }
+
+    // 发起服务费支付（500元/年）
+    @GetMapping("/pay_service_fee")
+    public Result<String> payServiceFee(@RequestParam Long superAdminId) {
+        return activationService.payServiceFee(superAdminId);
+    }
+
+    // 激活系统（需支付后调用）
+    @PostMapping("/activate_system")
+    public Result<SystemActivation> activateSystem(
+            @RequestParam Long superAdminId,
+            @RequestParam String deviceId) { // 前端传递的设备唯一标识
+        return activationService.activateSystem(superAdminId, deviceId);
+    }
+
+    @GetMapping("/verify_activation")
+    public Result<Boolean> verifyActivation(@RequestParam String deviceId) {
+        // 调用Service中新增的方法获取当前激活记录
+        Optional<SystemActivation> activeActivation = activationService.getCurrentActiveActivation();
+        if (activeActivation.isEmpty()) {
+            return Result.error(StatusCode.FAIL, "系统未激活");
+        }
+        // 验证设备与当前激活记录的匹配性
+        return activationService.verifyDevice(activeActivation.get().getSecretKey(), deviceId);
     }
 
 }
