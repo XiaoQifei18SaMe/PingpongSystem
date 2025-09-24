@@ -13,4 +13,7 @@ public interface SystemActivationRepository extends JpaRepository<SystemActivati
 
     // 通过秘钥查询
     Optional<SystemActivation> findBySecretKey(String secretKey);
+
+    // 新增：按设备ID和激活状态查询（查询当前设备的有效激活记录）
+    Optional<SystemActivation> findByDeviceIdAndIsActive(String deviceId, boolean isActive);
 }

@@ -1,5 +1,6 @@
 package org.example.pingpongsystem.service;
 
+import org.example.pingpongsystem.dto.ActivationExpiryDTO;
 import org.example.pingpongsystem.entity.SystemActivation;
 import org.example.pingpongsystem.repository.SystemActivationRepository;
 import org.example.pingpongsystem.utility.Result;
@@ -8,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -66,14 +68,50 @@ public class SystemActivationService {
         return Result.success(saved);
     }
 
-    // 验证设备是否匹配（防止秘钥滥用）
+    /**
+     * 新增：获取当前设备的激活过期信息
+     * @param deviceId 设备唯一标识
+     * @return 激活状态+到期时间
+     */
+    public Result<ActivationExpiryDTO> getActivationExpiry(String deviceId) {
+        // 1. 查询当前设备的有效激活记录（isActive=true + deviceId匹配）
+        Optional<SystemActivation> activeRecord = activationRepository
+                .findByDeviceIdAndIsActive(deviceId, true);
+
+        // 2. 封装返回VO
+        ActivationExpiryDTO expiryVO = new ActivationExpiryDTO();
+        if (activeRecord.isPresent()) {
+            SystemActivation activation = activeRecord.get();
+            expiryVO.setActive(true);
+            // 时间格式化为：yyyy-MM-dd HH:mm:ss（便于前端解析）
+            String validToStr = activation.getValidTo()
+                    .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+            expiryVO.setValidTo(validToStr);
+        } else {
+            // 无有效激活记录
+            expiryVO.setActive(false);
+            expiryVO.setValidTo(null);
+        }
+
+        return Result.success(expiryVO);
+    }
+
+    /**
+     * 原有verifyDevice方法（确保正确，用于激活验证）
+     * @param secretKey 激活秘钥
+     * @param deviceId 设备ID
+     * @return 验证结果
+     */
     public Result<Boolean> verifyDevice(String secretKey, String deviceId) {
-        return activationRepository.findBySecretKey(secretKey)
-                .map(activation -> {
-                    boolean isMatch = activation.getDeviceId().equals(deviceId) && activation.isActive();
-                    return Result.success(isMatch);
-                })
-                .orElse(Result.error(StatusCode.FAIL, "无效的秘钥"));
+        Optional<SystemActivation> activation = activationRepository.findBySecretKey(secretKey);
+        if (activation.isEmpty()) {
+            return Result.error(StatusCode.FAIL, "激活记录不存在");
+        }
+        // 验证设备ID匹配 + 激活状态有效 + 未过期
+        boolean isMatch = activation.get().getDeviceId().equals(deviceId)
+                && activation.get().isActive()
+                && LocalDateTime.now().isBefore(activation.get().getValidTo());
+        return isMatch ? Result.success(true) : Result.error(StatusCode.FAIL, "设备验证失败");
     }
 
     // 新增：获取当前激活的记录

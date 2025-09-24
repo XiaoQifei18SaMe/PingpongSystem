@@ -1,6 +1,7 @@
 package org.example.pingpongsystem.controller;
 
 import lombok.Data;
+import org.example.pingpongsystem.dto.ActivationExpiryDTO;
 import org.example.pingpongsystem.entity.*;
 import org.example.pingpongsystem.service.*;
 import org.example.pingpongsystem.utility.Result;
@@ -20,15 +21,18 @@ public class SuperAdminController {
     private final AdminService adminService;
     private final PaymentService paymentService;
     private final SystemActivationService activationService;
+    private final TokenService tokenService;
 
     public SuperAdminController(SuperAdminService superAdminService,
                                 AdminService adminService,
                                 PaymentService paymentService,
-                                SystemActivationService systemActivationService) {
+                                SystemActivationService systemActivationService,
+                                TokenService tokenService) {
         this.superAdminService = superAdminService;
         this.adminService = adminService;
         this.paymentService = paymentService;
         this.activationService = systemActivationService;
+        this.tokenService = tokenService;
     }
 
     @PostMapping("/login")
@@ -208,5 +212,26 @@ public class SuperAdminController {
         // 验证设备与当前激活记录的匹配性
         return activationService.verifyDevice(activeActivation.get().getSecretKey(), deviceId);
     }
+
+    /**
+     * 新增：获取当前设备的激活过期信息（需超级管理员权限）
+     * @param token 超级管理员登录token（权限验证）
+     * @param deviceId 设备唯一标识（匹配激活记录）
+     * @return 激活状态+到期时间
+     */
+    @GetMapping("/get_activation_expiry")
+    public Result<ActivationExpiryDTO> getActivationExpiry(
+            @RequestParam String token,
+            @RequestParam String deviceId) {
+        // 1. 先验证token有效性（超级管理员权限）
+        Result<InfoAns> infoResult = tokenService.getInfo(token);
+        if (!infoResult.isSuccess()) {
+            return Result.error(StatusCode.FAIL, "令牌无效：" + infoResult.getMessage());
+        }
+
+        // 2. 调用Service获取过期信息
+        return activationService.getActivationExpiry(deviceId);
+    }
+
 
 }
