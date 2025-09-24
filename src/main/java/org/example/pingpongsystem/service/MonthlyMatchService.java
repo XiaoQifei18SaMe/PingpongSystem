@@ -321,19 +321,43 @@ public class MonthlyMatchService {
      */
     private List<List<MatchRegistrationEntity>> splitIntoSubgroups(List<MatchRegistrationEntity> registrations) {
         List<List<MatchRegistrationEntity>> subgroups = new ArrayList<>();
-        final int MAX_GROUP_SIZE = 6; // 每组最多6人（需求明确）
+        final int MAX_GROUP_SIZE = 6; // 每组最多6人（需求不变）
+        final int MIN_GROUP_SIZE = 2; // 每组最少2人（解决1人组问题）
         int totalRegistrants = registrations.size();
 
-        // 随机打乱报名顺序（确保分组公平性，避免固定顺序影响对阵）
+        // 前置过滤：不足2人无法比赛，直接返回空列表（不生成小组）
+        if (totalRegistrants < MIN_GROUP_SIZE) {
+            return subgroups;
+        }
+
+        // 步骤1：计算总组数（向上取整，确保每组≤MAX_GROUP_SIZE）
+        int groupCount;
+        if (totalRegistrants <= MAX_GROUP_SIZE) {
+            groupCount = 1; // 人数≤6时，1组即可
+        } else {
+            // 向上取整公式：(总数 + 每组最大数 - 1) / 每组最大数（避免使用Math.ceil，兼容整数运算）
+            groupCount = (totalRegistrants + MAX_GROUP_SIZE - 1) / MAX_GROUP_SIZE;
+        }
+
+        // 步骤2：计算每组基础人数和余数（分配余数确保每组≥MIN_GROUP_SIZE）
+        int baseSize = totalRegistrants / groupCount; // 基础人数（每组至少baseSize人）
+        int remainder = totalRegistrants % groupCount; // 余数（前remainder组需多1人）
+
+        // 步骤3：随机打乱报名顺序（公平性保障，保留原逻辑）
         Collections.shuffle(registrations);
 
-        // 拆分逻辑：从0开始，每MAX_GROUP_SIZE人一组，最后一组不足6人也保留
-        for (int i = 0; i < totalRegistrants; i += MAX_GROUP_SIZE) {
+        // 步骤4：拆分分组（前remainder组为baseSize+1人，剩余为baseSize人）
+        int currentIndex = 0; // 当前拆分的起始索引
+        for (int i = 0; i < groupCount; i++) {
+            // 计算当前组的人数：前remainder组多1人
+            int currentGroupSize = (i < remainder) ? (baseSize + 1) : baseSize;
             // 计算当前组的结束索引（避免超出列表长度）
-            int endIndex = Math.min(i + MAX_GROUP_SIZE, totalRegistrants);
-            // 关键修改：用new ArrayList()将subList转为独立列表（原subList依赖原列表，易出问题）
-            List<MatchRegistrationEntity> subgroup = new ArrayList<>(registrations.subList(i, endIndex));
+            int endIndex = Math.min(currentIndex + currentGroupSize, totalRegistrants);
+            // 截取子列表并转为独立ArrayList（避免原列表修改导致的视图异常）
+            List<MatchRegistrationEntity> subgroup = new ArrayList<>(registrations.subList(currentIndex, endIndex));
             subgroups.add(subgroup);
+            // 更新下一组的起始索引
+            currentIndex = endIndex;
         }
 
         return subgroups;
@@ -485,6 +509,10 @@ public class MonthlyMatchService {
         }
 
         MonthlyMatchEntity match = matchOpt.get();
+        LocalDateTime now = LocalDateTime.now();
+
+        // 保存原始截止时间用于状态校验（如果更新了截止时间则用新值）
+        LocalDateTime effectiveDeadline = registrationDeadline != null ? registrationDeadline : match.getRegistrationDeadline();
 
         // 更新标题
         if (title != null && !title.isEmpty()) {
@@ -503,6 +531,7 @@ public class MonthlyMatchService {
                 // 只更新开始时间，保持原截止时间与开始时间的相对关系
                 long daysBetween = ChronoUnit.DAYS.between(match.getStartTime(), match.getRegistrationDeadline());
                 match.setRegistrationDeadline(startTime.plusDays(daysBetween));
+                effectiveDeadline = match.getRegistrationDeadline(); // 更新有效截止时间
             }
             match.setStartTime(startTime);
             match.setYear(startTime.getYear());
@@ -513,11 +542,20 @@ public class MonthlyMatchService {
                 return Result.error(StatusCode.FAIL, "报名截止时间不能晚于比赛开始时间");
             }
             match.setRegistrationDeadline(registrationDeadline);
+            effectiveDeadline = registrationDeadline; // 更新有效截止时间
         }
 
         // 更新状态
         if (status != null) {
-            // 状态变更的一些限制条件
+            // 新增限制：只有未到报名截止时间，才能设置为未开始或报名中
+            if ((status == MonthlyMatchEntity.MatchStatus.NOT_STARTED ||
+                    status == MonthlyMatchEntity.MatchStatus.REGISTERING) &&
+                    now.isAfter(effectiveDeadline)) {
+                return Result.error(StatusCode.FAIL, "已过报名截止时间，不能设置为" +
+                        (status == MonthlyMatchEntity.MatchStatus.NOT_STARTED ? "未开始" : "报名中"));
+            }
+
+            // 原有状态变更限制条件
             if (status == MonthlyMatchEntity.MatchStatus.COMPLETED &&
                     match.getStatus() != MonthlyMatchEntity.MatchStatus.ONGOING) {
                 return Result.error(StatusCode.FAIL, "只有进行中的比赛才能标记为已完成");
@@ -535,6 +573,7 @@ public class MonthlyMatchService {
         MonthlyMatchEntity updatedMatch = matchRepository.save(match);
         return Result.success(updatedMatch);
     }
+
 
     /**
      * 获取所有比赛，支持按年和月筛选
