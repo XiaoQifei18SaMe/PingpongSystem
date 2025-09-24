@@ -9,7 +9,8 @@ import java.util.Optional;
 
 @Repository
 public interface MonthlyMatchRepository extends JpaRepository<MonthlyMatchEntity, Long> {
-    Optional<MonthlyMatchEntity> findByYearAndMonth(Integer year, Integer month);
+    List<MonthlyMatchEntity> findByYearAndMonth(Integer year, Integer month);
     // 新增：根据状态查询比赛
     List<MonthlyMatchEntity> findByStatus(MonthlyMatchEntity.MatchStatus status);
+    List<MonthlyMatchEntity> findByYear(Integer year);
 }

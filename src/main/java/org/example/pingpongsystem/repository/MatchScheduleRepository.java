@@ -10,5 +10,12 @@ import java.util.List;
 public interface MatchScheduleRepository extends JpaRepository<MatchScheduleEntity, Long> {
     List<MatchScheduleEntity> findByMonthlyMatchId(Long matchId);
     List<MatchScheduleEntity> findByMonthlyMatchIdAndGroupId(Long matchId, Long groupId);
-    List<MatchScheduleEntity> findByMonthlyMatchIdAndPlayer1IdOrPlayer2Id(Long matchId, Long player1Id, Long player2Id);
+    // 方法名含义：查询“monthlyMatchId=?1 且 (player1Id=?2 或 player2Id=?2)”的记录
+    List<MatchScheduleEntity> findByMonthlyMatchIdAndPlayer1IdOrMonthlyMatchIdAndPlayer2Id(
+            Long monthlyMatchId,
+            Long player1Id,
+            Long monthlyMatchId2,  // 与第一个monthlyMatchId参数值相同
+            Long player2Id
+    );
+    long countByMonthlyMatchId(Long MonthlyMatchId);
 }

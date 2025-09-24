@@ -27,6 +27,9 @@ public class MonthlyMatchEntity {
     @Column(nullable = false)
     private Integer month; // 月份
 
+    @Transient  // 关键：标注该字段不存入数据库
+    private Boolean hasSchedule;
+
     @Enumerated(EnumType.STRING)
     private MatchStatus status; // 比赛状态
 

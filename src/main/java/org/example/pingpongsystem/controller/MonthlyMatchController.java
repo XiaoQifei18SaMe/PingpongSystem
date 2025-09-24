@@ -70,4 +70,61 @@ public class MonthlyMatchController {
     public Result<MonthlyMatchEntity> getMatchById(@RequestParam Long matchId) {
         return matchService.getMatchById(matchId);
     }
+
+
+    /**
+     * 管理员创建新比赛
+     */
+    @PostMapping("/admin/create")
+    public Result<MonthlyMatchEntity> createMatch(
+            @RequestParam String title,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startTime,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime registrationDeadline) {
+        return matchService.createMatchByAdmin(title, startTime, registrationDeadline);
+    }
+
+    /**
+     * 管理员更新比赛信息（包括状态、时间等）
+     */
+    @PutMapping("/admin/update")
+    public Result<MonthlyMatchEntity> updateMatch(
+            @RequestParam Long id,
+            @RequestParam(required = false) String title,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startTime,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime registrationDeadline,
+            @RequestParam(required = false) String status) { // 状态参数：NOT_STARTED, REGISTERING, REGISTRATION_CLOSED, ONGOING, COMPLETED
+        MonthlyMatchEntity.MatchStatus matchStatus = null;
+        if (status != null && !status.isEmpty()) {
+            matchStatus = MonthlyMatchEntity.MatchStatus.valueOf(status);
+        }
+        return matchService.updateMatchByAdmin(id, title, startTime, registrationDeadline, matchStatus);
+    }
+
+    /**
+     * 管理员获取所有比赛（包括已结束的）
+     */
+    @GetMapping("/admin/all")
+    public Result<List<MonthlyMatchEntity>> getAllMatches(
+            @RequestParam(required = false) Integer year,
+            @RequestParam(required = false) Integer month) {
+        return matchService.getAllMatches(year, month);
+    }
+
+    /**
+     * 管理员手动触发赛程安排
+     */
+    @PostMapping("/admin/arrange-schedule")
+    public Result<Void> manuallyArrangeSchedule(@RequestParam Long matchId) {
+        return matchService.manuallyArrangeSchedule(matchId);
+    }
+
+    /**
+     * 新增：管理员获取某比赛的全量赛程
+     * @param matchId 月赛ID
+     */
+    @GetMapping("/admin/schedule")
+    public Result<List<MatchScheduleEntity>> getAdminMatchSchedule(
+            @RequestParam Long matchId) {
+        return matchService.getAdminMatchSchedule(matchId);
+    }
 }
