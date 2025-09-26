@@ -92,51 +92,69 @@ public class CoachService {
         if (temp == null) {
             return Result.error(StatusCode.USERNAME_NOT_FOUND, "用户名不存在");
         }
-        else {
-            if (!coach.getPassword().equals(temp.getPassword())) {
-                if (!coach.getPassword().isEmpty())
-                    temp.setPassword(coach.getPassword());
-            }
-            if (!coach.getName().equals(temp.getName())) {
-                if (!coach.getName().isEmpty())
-                    temp.setName(coach.getName());
-            }
-            if (coach.getIsMale() != temp.getIsMale()) {
-                temp.setIsMale(coach.getIsMale());
-            }
-            if (coach.getAge() != temp.getAge()) {
-                if (coach.getAge() > 0 && coach.getAge() < 200)
-                    temp.setAge(coach.getAge());
-            }
-            if (!coach.getPhone().equals(temp.getPhone())) {
-                if (!coach.getPhone().isEmpty())
-                    temp.setPhone(coach.getPhone());
-            }
-            if (!coach.getEmail().equals(temp.getEmail())) {
-                if (!coach.getEmail().isEmpty())
-                    temp.setEmail(coach.getEmail());
-            }
+        // 检查是否需要更换校区
+        boolean needChangeSchool = !Objects.equals(coach.getSchoolId(), temp.getSchoolId());
 
-            if (!coach.getDescription().equals(temp.getDescription())) {
-                if (!coach.getDescription().isEmpty()) {
-                    temp.setDescription(coach.getDescription());
-                    //temp.setCertified(false);
-                }
-            }
+        if (needChangeSchool) {
+            // 查询该学生是否有任何教练关联记录（无论是否确认）
+            long coachRelationCount = coachTeachStudentRepository
+                    .countByCoachId(temp.getId());
 
-            temp.setAvatar(coach.getAvatar());  // 假设CoachEntity新增了avatar字段
-
-            if(coach.getPhotoPath().isEmpty()){
-                return Result.error(StatusCode.FAIL,"照片不能为空");
+            if (coachRelationCount > 0) {
+                return Result.error(StatusCode.FAIL, "该教练已有学生关联记录，无法更换校区");
             }
-            // 新增：如果传入了教练照片路径，更新照片（原逻辑保留，这里兼容前端分离上传）
-            if (coach.getPhotoPath() != null && !coach.getPhotoPath().isEmpty()) {
-                temp.setPhotoPath(coach.getPhotoPath());
-                //temp.setCertified(false);  // 照片变更需重新审核
-            }
-
-            return Result.success(temp);
         }
+
+        if (!coach.getPassword().equals(temp.getPassword())) {
+            if (!coach.getPassword().isEmpty())
+                temp.setPassword(coach.getPassword());
+        }
+        if (!coach.getName().equals(temp.getName())) {
+            if (!coach.getName().isEmpty())
+                temp.setName(coach.getName());
+        }
+        if (coach.getIsMale() != temp.getIsMale()) {
+            temp.setIsMale(coach.getIsMale());
+        }
+        if (coach.getAge() != temp.getAge()) {
+            if (coach.getAge() > 0 && coach.getAge() < 200)
+                temp.setAge(coach.getAge());
+        }
+        if (!coach.getPhone().equals(temp.getPhone())) {
+            if (!coach.getPhone().isEmpty())
+                temp.setPhone(coach.getPhone());
+        }
+        if (!coach.getEmail().equals(temp.getEmail())) {
+            if (!coach.getEmail().isEmpty())
+                temp.setEmail(coach.getEmail());
+        }
+
+        if (!coach.getDescription().equals(temp.getDescription())) {
+            if (!coach.getDescription().isEmpty()) {
+                temp.setDescription(coach.getDescription());
+                //temp.setCertified(false);
+            }
+        }
+
+        temp.setAvatar(coach.getAvatar());  // 假设CoachEntity新增了avatar字段
+
+        if(coach.getPhotoPath().isEmpty()){
+            return Result.error(StatusCode.FAIL,"照片不能为空");
+        }
+        // 新增：如果传入了教练照片路径，更新照片（原逻辑保留，这里兼容前端分离上传）
+        if (coach.getPhotoPath() != null && !coach.getPhotoPath().isEmpty()) {
+            temp.setPhotoPath(coach.getPhotoPath());
+            //temp.setCertified(false);  // 照片变更需重新审核
+        }
+
+        if (needChangeSchool) {
+            temp.setSchoolId(coach.getSchoolId());
+        }
+
+        // 保存更新（原代码漏了save操作，补充上）
+        CoachEntity updated = coachRepository.save(temp);
+        return Result.success(updated);
+
     }
 
     public Result<List<CoachEntity>> getAll() {

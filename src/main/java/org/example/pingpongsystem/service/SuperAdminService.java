@@ -21,6 +21,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 @Service
@@ -34,6 +35,7 @@ public class SuperAdminService {
     private final CoachAccountService coachAccountService;
     private final StudentRepository studentRepository;
     private final ScheduleRepository scheduleRepository;
+    private final CoachTeachStudentRepository coachTeachStudentRepository;
     public SuperAdminService(SuperAdminRepository superAdminRepository,
                              SchoolRepository schoolRepository,
                              TableRepository tableRepository,
@@ -42,7 +44,8 @@ public class SuperAdminService {
                              CoachRepository coachRepository,
                              CoachAccountService coachAccountService,
                              StudentRepository studentRepository,
-                             ScheduleRepository scheduleRepository) {
+                             ScheduleRepository scheduleRepository,
+                             CoachTeachStudentRepository coachTeachStudentRepository) {
         this.superAdminRepository = superAdminRepository;
         this.schoolRepository = schoolRepository;
         this.tableRepository = tableRepository;
@@ -52,6 +55,7 @@ public class SuperAdminService {
         this.coachAccountService = coachAccountService;
         this.studentRepository = studentRepository;
         this.scheduleRepository = scheduleRepository;
+        this.coachTeachStudentRepository = coachTeachStudentRepository;
     }
 
     public Result<AdminEntity> createAdmin(AdminEntity admin) {
@@ -604,6 +608,21 @@ public class SuperAdminService {
         }
         if (updatedCoach.getIsMale() != coach.getIsMale()) {
             coach.setIsMale(updatedCoach.getIsMale());
+        }
+        // 检查是否需要更换校区
+        boolean needChangeSchool = !Objects.equals(coach.getSchoolId(), updatedCoach.getSchoolId());
+
+        if (needChangeSchool) {
+            // 查询该学生是否有任何教练关联记录（无论是否确认）
+            long coachRelationCount = coachTeachStudentRepository
+                    .countByCoachId(updatedCoach.getId());
+
+            if (coachRelationCount > 0) {
+                return Result.error(StatusCode.FAIL, "该教练已有学生关联记录，无法更换校区");
+            }
+        }
+        if (needChangeSchool) {
+            coach.setSchoolId(updatedCoach.getSchoolId());
         }
 
         // 4. 保存更新

@@ -20,6 +20,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -88,35 +89,50 @@ public class StudentService {
         if (temp == null) {
             return Result.error(StatusCode.USERNAME_NOT_FOUND, "用户名不存在");
         }
-        else {
-            if (!student.getPassword().equals(temp.getPassword())) {
-                if (!student.getPassword().isEmpty())
-                    temp.setPassword(student.getPassword());
+
+        // 检查是否需要更换校区
+        boolean needChangeSchool = !Objects.equals(student.getSchoolId(), temp.getSchoolId());
+
+        if (needChangeSchool) {
+            // 查询该学生是否有任何教练关联记录（无论是否确认）
+            long coachRelationCount = coachTeachStudentRepository
+                    .countByStudentId(temp.getId());
+
+            if (coachRelationCount > 0) {
+                return Result.error(StatusCode.FAIL, "该学生已有教练关联记录，无法更换校区");
             }
-            if (!student.getName().equals(temp.getName())) {
-                if (!student.getName().isEmpty())
-                    temp.setName(student.getName());
-            }
-            if (student.isMale() != temp.isMale()) {
-                temp.setMale(student.isMale());
-            }
-            if (student.getAge() != temp.getAge()) {
-                if (student.getAge() > 0 && student.getAge() < 200)
-                    temp.setAge(student.getAge());
-            }
-            if (!student.getPhone().equals(temp.getPhone())) {
-                if (!student.getPhone().isEmpty())
-                    temp.setPhone(student.getPhone());
-            }
-            if (!student.getEmail().equals(temp.getEmail())) {
-                if (!student.getEmail().isEmpty())
-                    temp.setEmail(student.getEmail());
-            }
-            if(student.getSchoolId() != temp.getId()){
-                temp.setSchoolId(student.getSchoolId());
-            }
-            return Result.success(temp);
         }
+        if (!student.getPassword().equals(temp.getPassword())) {
+            if (!student.getPassword().isEmpty())
+                temp.setPassword(student.getPassword());
+        }
+        if (!student.getName().equals(temp.getName())) {
+            if (!student.getName().isEmpty())
+                temp.setName(student.getName());
+        }
+        if (student.isMale() != temp.isMale()) {
+            temp.setMale(student.isMale());
+        }
+        if (student.getAge() != temp.getAge()) {
+            if (student.getAge() > 0 && student.getAge() < 200)
+                temp.setAge(student.getAge());
+        }
+        if (!student.getPhone().equals(temp.getPhone())) {
+            if (!student.getPhone().isEmpty())
+                temp.setPhone(student.getPhone());
+        }
+        if (!student.getEmail().equals(temp.getEmail())) {
+            if (!student.getEmail().isEmpty())
+                temp.setEmail(student.getEmail());
+        }
+        if (needChangeSchool) {
+            temp.setSchoolId(student.getSchoolId());
+        }
+
+        // 保存更新（原代码漏了save操作，补充上）
+        StudentEntity updated = studentRepository.save(temp);
+        return Result.success(updated);
+
     }
 
 //    @Transactional
