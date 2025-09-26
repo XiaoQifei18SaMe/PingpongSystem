@@ -103,9 +103,19 @@ public class CourseAppointmentService {
                 return Result.error(StatusCode.FAIL, "教练等级设置异常");
         }
 
-        // 计算总费用（时长小时数 × 时薪）
-        long hours = java.time.Duration.between(startTime, endTime).toHours();
+//        // 计算总费用（时长小时数 × 时薪）
+//        long hours = java.time.Duration.between(startTime, endTime).toHours();
+//        double totalAmount = hourlyRate * hours;
+        // 计算总时长（转换为带小数的小时数，支持非整时）
+// 1. 先获取两个时间之间的总分钟数
+        long totalMinutes = java.time.Duration.between(startTime, endTime).toMinutes();
+// 2. 转换为小时数（除以60.0保留小数）
+        double hours = totalMinutes / 60.0;
+
+// 计算总费用（精确到分，可选四舍五入保留两位小数）
         double totalAmount = hourlyRate * hours;
+// 如需保留两位小数（避免浮点数精度问题），可使用BigDecimal处理
+        totalAmount = Math.round(totalAmount * 100) / 100.0;  // 四舍五入到分
 
         // ---------------------- 新增：余额检查与扣款逻辑 ----------------------
         // 6. 查询学生账户

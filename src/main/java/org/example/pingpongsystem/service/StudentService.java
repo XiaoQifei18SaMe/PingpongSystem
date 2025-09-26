@@ -125,6 +125,8 @@ public class StudentService {
             if (!student.getEmail().isEmpty())
                 temp.setEmail(student.getEmail());
         }
+
+        temp.setAvatar(student.getAvatar());
         if (needChangeSchool) {
             temp.setSchoolId(student.getSchoolId());
         }
